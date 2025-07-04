@@ -86,4 +86,13 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(new MessageResponse("예상치 못한 오류가 발생했습니다.", false));
     }
+
+    /**
+     * 권한 부족 예외 처리
+     * 사용자가 문서 읽기/삭제 등에서 필요한 권한이 없을 때 403 Forbidden 반환
+     */
+    @ExceptionHandler(PermissionDeniedException.class)
+    public ResponseEntity<String> handlePermissionDenied(PermissionDeniedException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ex.getMessage());
+    }
 }
