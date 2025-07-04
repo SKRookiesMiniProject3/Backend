@@ -48,7 +48,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
      * @param username 사용자명
      * @return 권한 정보가 포함된 사용자 정보
      */
-    @Query("SELECT u FROM User u LEFT JOIN FETCH u.roles WHERE u.username = :username AND u.isActive = true")
+    @Query("SELECT u FROM User u LEFT JOIN FETCH u.role WHERE u.username = :username AND u.isActive = true")
     Optional<User> findActiveUserWithRoles(@Param("username") String username);
     
     /**
