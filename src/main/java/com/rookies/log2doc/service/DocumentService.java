@@ -1,11 +1,13 @@
 package com.rookies.log2doc.service;
 
+import com.rookies.log2doc.dto.request.DocumentUpdateRequest;
 import com.rookies.log2doc.entity.Document;
 import com.rookies.log2doc.entity.Role;
 import com.rookies.log2doc.exception.PermissionDeniedException;
 import com.rookies.log2doc.repository.DocumentRepository;
 import com.rookies.log2doc.repository.RoleRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
@@ -25,6 +27,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class DocumentService {
 
     @Autowired
@@ -48,10 +51,23 @@ public class DocumentService {
 
     public Document getDocument(Long id, String userRoleName) {
         Document doc = documentRepository.findById(id)
+                .filter(d -> !d.isDeleted())
                 .orElseThrow(() -> new RuntimeException("문서를 찾을 수 없습니다."));
-        if (!doc.getReadRole().getName().name().equals(userRoleName)) {
+
+        // ✅ 삭제 여부 확인
+        if (doc.isDeleted()) {
+            log.warn("삭제된 문서입니다. [id={}]", id);  // 콘솔에 남김
+            throw new RuntimeException("삭제된 문서입니다.");
+        }
+
+        Role.RoleName userRole = Role.RoleName.valueOf(userRoleName);
+        int userLevel = userRole.getLevel();
+        int requiredLevel = doc.getReadRole().getName().getLevel();
+
+        if (userLevel < requiredLevel) {
             throw new PermissionDeniedException("읽기 권한이 없습니다!");
         }
+
         return doc;
     }
 
@@ -158,9 +174,15 @@ public class DocumentService {
     public void softDeleteDocument(Long id, String userRole) {
         Document doc = documentRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("문서를 찾을 수 없습니다."));
-        if (!userRole.equals(doc.getDeleteRole())) {
-            throw new PermissionDeniedException("삭제 권한이 없습니다.");
+
+        Role.RoleName userRoleEnum = Role.RoleName.valueOf(userRole);
+        int userLevel = userRoleEnum.getLevel();
+        int requiredLevel = doc.getDeleteRole().getName().getLevel();
+
+        if (userLevel < requiredLevel) {
+            throw new PermissionDeniedException("삭제 권한이 없습니다!");
         }
+
         doc.setDeleted(true);
         doc.setDeletedAt(LocalDateTime.now());
         documentRepository.save(doc);
@@ -169,9 +191,15 @@ public class DocumentService {
     public void hardDeleteDocument(Long id, String userRole) {
         Document doc = documentRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("문서를 찾을 수 없습니다."));
-        if (!userRole.equals(doc.getDeleteRole())) {
-            throw new PermissionDeniedException("삭제 권한이 없습니다.");
+
+        Role.RoleName userRoleEnum = Role.RoleName.valueOf(userRole);
+        int userLevel = userRoleEnum.getLevel();
+        int requiredLevel = doc.getDeleteRole().getName().getLevel();
+
+        if (userLevel < requiredLevel) {
+            throw new PermissionDeniedException("삭제 권한이 없습니다!");
         }
+
         documentRepository.delete(doc);
     }
 

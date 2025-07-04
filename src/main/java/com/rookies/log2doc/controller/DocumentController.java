@@ -1,5 +1,6 @@
 package com.rookies.log2doc.controller;
 
+import com.rookies.log2doc.dto.request.DocumentUpdateRequest;
 import com.rookies.log2doc.entity.Document;
 import com.rookies.log2doc.entity.Role;
 import com.rookies.log2doc.service.DocumentService;
@@ -94,20 +95,23 @@ public class DocumentController {
     }
 
     @DeleteMapping("/{id}/soft")
-    public ResponseEntity<Void> softDeleteDocument(
+    public ResponseEntity<Void> softDelete(
             @PathVariable Long id,
-            @RequestParam String userRole) {
-        documentService.softDeleteDocument(id, userRole);
+            @RequestParam("userRoleName") String userRoleName
+    ) {
+        documentService.softDeleteDocument(id, userRoleName);
         return ResponseEntity.ok().build();
     }
 
     @DeleteMapping("/{id}/hard")
     public ResponseEntity<Void> hardDeleteDocument(
             @PathVariable Long id,
-            @RequestParam String userRole) {
-        documentService.hardDeleteDocument(id, userRole);
+            @RequestParam("userRoleName") String userRoleName // ✔️ 이렇게 맞춰주기!
+    ) {
+        documentService.hardDeleteDocument(id, userRoleName);
         return ResponseEntity.ok().build();
     }
+
 
 
 }
