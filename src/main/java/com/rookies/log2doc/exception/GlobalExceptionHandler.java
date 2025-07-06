@@ -88,11 +88,11 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 권한 부족 예외 처리
-     * 사용자가 문서 읽기/삭제 등에서 필요한 권한이 없을 때 403 Forbidden 반환
+     * PermissionDeniedException 처리 핸들러 추가
      */
     @ExceptionHandler(PermissionDeniedException.class)
     public ResponseEntity<String> handlePermissionDenied(PermissionDeniedException ex) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ex.getMessage());
     }
+
 }

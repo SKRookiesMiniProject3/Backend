@@ -3,11 +3,11 @@ package com.rookies.log2doc.controller;
 import com.rookies.log2doc.dto.request.DocumentCreateRequest;
 import com.rookies.log2doc.dto.request.DocumentUpdateRequest;
 import com.rookies.log2doc.entity.Document;
-import com.rookies.log2doc.entity.Role;
 import com.rookies.log2doc.security.services.UserDetailsImpl;
 import com.rookies.log2doc.service.DocumentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -16,10 +16,9 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
-import org.springframework.format.annotation.DateTimeFormat;
-import java.time.LocalDate;
 
 @RestController
 @RequestMapping("/documents")
@@ -28,11 +27,18 @@ public class DocumentController {
     @Autowired
     private DocumentService documentService;
 
+    /**
+     * 텍스트 문서 생성
+     */
     @PostMapping
     public ResponseEntity<Document> createDocument(@RequestBody DocumentCreateRequest req) {
-        return ResponseEntity.ok(documentService.createTextDocument(req));
+        Document created = documentService.createTextDocument(req);
+        return ResponseEntity.ok(created);
     }
 
+    /**
+     * 파일 업로드 후 문서 생성
+     */
     @PostMapping("/upload")
     public ResponseEntity<Document> uploadDocument(
             @RequestParam MultipartFile file,
@@ -41,17 +47,14 @@ public class DocumentController {
             @RequestParam Long writeRoleId,
             @RequestParam Long deleteRoleId
     ) throws IOException {
-        Document savedDoc = documentService.uploadDocument(
-                file,
-                category,
-                readRoleId,
-                writeRoleId,
-                deleteRoleId
-        );
-        return ResponseEntity.ok(savedDoc);
+        Document saved = documentService.uploadDocument(file, category, readRoleId, writeRoleId, deleteRoleId);
+        return ResponseEntity.ok(saved);
     }
 
-    // 전체 조회
+    /**
+     * 문서 리스트 조회
+     * - 카테고리 및 기간(startDate ~ endDate) 필터링 가능
+     */
     @GetMapping
     public ResponseEntity<List<Document>> getDocuments(
             @RequestParam(required = false) String category,
@@ -59,17 +62,18 @@ public class DocumentController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @AuthenticationPrincipal UserDetailsImpl userDetails
     ) {
-        return ResponseEntity.ok(
-                documentService.getDocumentList(
-                        category,
-                        userDetails.getRoleName(),
-                        startDate,
-                        endDate
-                )
+        List<Document> result = documentService.getDocumentList(
+                category,
+                userDetails.getRoleName(),
+                startDate,
+                endDate
         );
+        return ResponseEntity.ok(result);
     }
 
-    // 단일 조회
+    /**
+     * 단일 문서 조회
+     */
     @GetMapping("/{id}")
     public ResponseEntity<Document> getDocument(
             @PathVariable Long id,
@@ -79,11 +83,14 @@ public class DocumentController {
         return ResponseEntity.ok(doc);
     }
 
-    // 문서 파일 다운로드
+    /**
+     * 파일 다운로드 (문서 ID 기준)
+     */
     @GetMapping("/download/{id}")
     public ResponseEntity<Resource> downloadDocument(
             @PathVariable Long id,
-            @AuthenticationPrincipal UserDetailsImpl userDetails) throws MalformedURLException {
+            @AuthenticationPrincipal UserDetailsImpl userDetails
+    ) throws MalformedURLException {
         Resource fileResource = documentService.loadFileAsResource(id, userDetails.getRoleName());
 
         return ResponseEntity.ok()
@@ -92,7 +99,9 @@ public class DocumentController {
                 .body(fileResource);
     }
 
-    // 문서 파일 해시 경로
+    /**
+     * 파일 다운로드 (해시 경로 기준)
+     */
     @GetMapping("/files/{hash}")
     public ResponseEntity<Resource> downloadByHash(
             @PathVariable String hash,
@@ -107,7 +116,9 @@ public class DocumentController {
                 .body(fileResource);
     }
 
-    // 문서 전체 업데이트 (PUT)
+    /**
+     * 문서 전체 수정 (PUT)
+     */
     @PutMapping("/{id}")
     public ResponseEntity<Document> updateDocument(
             @PathVariable Long id,
@@ -118,7 +129,9 @@ public class DocumentController {
         return ResponseEntity.ok(updated);
     }
 
-    // 문서 일부 업데이트 (PATCH)
+    /**
+     * 문서 일부 수정 (PATCH)
+     */
     @PatchMapping("/{id}")
     public ResponseEntity<Document> patchDocument(
             @PathVariable Long id,
@@ -129,9 +142,11 @@ public class DocumentController {
         return ResponseEntity.ok(patched);
     }
 
-    // 문서 소프트 삭제
+    /**
+     * 문서 소프트 삭제 (isDeleted = true)
+     */
     @DeleteMapping("/{id}/soft")
-    public ResponseEntity<Void> softDelete(
+    public ResponseEntity<Void> softDeleteDocument(
             @PathVariable Long id,
             @AuthenticationPrincipal UserDetailsImpl userDetails
     ) {
@@ -139,7 +154,9 @@ public class DocumentController {
         return ResponseEntity.ok().build();
     }
 
-    // 문서 하드 삭제
+    /**
+     * 문서 완전 삭제 (하드)
+     */
     @DeleteMapping("/{id}/hard")
     public ResponseEntity<Void> hardDeleteDocument(
             @PathVariable Long id,

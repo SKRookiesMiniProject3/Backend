@@ -68,6 +68,8 @@ public class WebSecurityConfig {
                         .requestMatchers("/api/v1/public/**").permitAll()
                         .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                            // 모든 /documents/** 경로는 인증 없이 접근 허용
+                            // -> 대신 DocumentService 내부에서 역할별 권한을 직접 검증함
                         .requestMatchers("/documents/**").permitAll()
                         .anyRequest().authenticated()
                 );

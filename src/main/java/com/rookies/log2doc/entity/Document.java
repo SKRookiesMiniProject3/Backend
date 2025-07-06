@@ -16,35 +16,83 @@ public class Document {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /**
+     * 문서 제목
+     */
+    @Column(nullable = true)
     private String title;
 
+    /**
+     * 텍스트 문서 내용
+     */
     @Lob
-    private String content; // 텍스트 문서 내용
+    @Column(nullable = true)
+    private String content;
 
-    private String fileName;   // 파일명
-    private String filePath;   // 해시 경로
-    private Long fileSize;     // 파일 크기
-    private String mimeType;   // 파일 타입
+    /**
+     * 파일 업로드 관련 정보
+     */
+    private String fileName;   // 원본 파일명
+    private String filePath;   // UUID 기반 저장 경로 (해시)
+    private Long fileSize;     // 파일 크기 (Byte)
+    private String mimeType;   // MIME 타입
 
-    private String category;   // 카테고리별 필터링용
+    /**
+     * 문서 카테고리 (필터링용)
+     */
+    @Column(nullable = true)
+    private String category;
 
-    private String author;     // 작성자 ID 또는 이름
+    /**
+     * 작성자 ID 또는 이름
+     */
+    @Column(nullable = true)
+    private String author;
 
-    private boolean isDeleted = false; // Soft Delete
+    /**
+     * 소프트 삭제 여부
+     */
+    @Column(nullable = false)
+    private boolean isDeleted = false;
 
+    /**
+     * 생성/수정/삭제 일시
+     */
+    @Column(nullable = false)
     private LocalDateTime createdAt;
+
     private LocalDateTime updatedAt;
+
     private LocalDateTime deletedAt;
 
-    @ManyToOne
+    /**
+     * 접근 권한 정보
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "read_role_id")
     private Role readRole;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "write_role_id")
     private Role writeRole;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "delete_role_id")
     private Role deleteRole;
+
+    /**
+     * 생성일 기본값 처리
+     */
+    @PrePersist
+    public void prePersist() {
+        this.createdAt = LocalDateTime.now();
+    }
+
+    /**
+     * 수정일 자동 갱신
+     */
+    @PreUpdate
+    public void preUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
 }
