@@ -1,5 +1,6 @@
 package com.rookies.log2doc.controller;
 
+import com.rookies.log2doc.dto.request.DocumentCreateRequest;
 import com.rookies.log2doc.dto.request.DocumentUpdateRequest;
 import com.rookies.log2doc.entity.Document;
 import com.rookies.log2doc.entity.Role;
@@ -26,8 +27,8 @@ public class DocumentController {
     private DocumentService documentService;
 
     @PostMapping
-    public ResponseEntity<Document> createDocument(@RequestBody Document document) {
-        return ResponseEntity.ok(documentService.createTextDocument(document));
+    public ResponseEntity<Document> createDocument(@RequestBody DocumentCreateRequest req) {
+        return ResponseEntity.ok(documentService.createTextDocument(req));
     }
 
     @PostMapping("/upload")
@@ -51,8 +52,12 @@ public class DocumentController {
     // 전체 조회
     @GetMapping
     public ResponseEntity<List<Document>> getDocuments(
-            @RequestParam(required = false) String category) {
-        return ResponseEntity.ok(documentService.getDocumentList(category));
+            @RequestParam(required = false) String category,
+            @AuthenticationPrincipal UserDetailsImpl userDetails
+    ) {
+        return ResponseEntity.ok(
+                documentService.getDocumentList(category, userDetails.getRoleName())
+        );
     }
 
     // 단일 조회

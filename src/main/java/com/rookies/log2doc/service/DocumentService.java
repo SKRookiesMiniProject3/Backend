@@ -1,5 +1,6 @@
 package com.rookies.log2doc.service;
 
+import com.rookies.log2doc.dto.request.DocumentCreateRequest;
 import com.rookies.log2doc.dto.request.DocumentUpdateRequest;
 import com.rookies.log2doc.entity.Document;
 import com.rookies.log2doc.entity.Role;
@@ -24,6 +25,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -36,17 +38,42 @@ public class DocumentService {
     @Autowired
     private RoleRepository roleRepository;
 
-    public Document createTextDocument(Document document) {
-        document.setCreatedAt(LocalDateTime.now());
-        return documentRepository.save(document);
+    public Document createTextDocument(DocumentCreateRequest req) {
+        Role readRole = roleRepository.findById(req.getReadRoleId())
+                .orElseThrow(() -> new RuntimeException("읽기 권한 Role 없음"));
+        Role writeRole = roleRepository.findById(req.getWriteRoleId())
+                .orElseThrow(() -> new RuntimeException("쓰기 권한 Role 없음"));
+        Role deleteRole = roleRepository.findById(req.getDeleteRoleId())
+                .orElseThrow(() -> new RuntimeException("삭제 권한 Role 없음"));
+
+        Document doc = new Document();
+        doc.setTitle(req.getTitle());
+        doc.setContent(req.getContent());
+        doc.setCategory(req.getCategory());
+        doc.setReadRole(readRole);
+        doc.setWriteRole(writeRole);
+        doc.setDeleteRole(deleteRole);
+
+        return documentRepository.save(doc);
     }
 
-    public List<Document> getDocumentList(String category) {
+    // ✅ 서비스 수정 예시
+    public List<Document> getDocumentList(String category, String userRoleName) {
+        List<Document> docs;
+
         if (category != null && !category.isEmpty()) {
-            return documentRepository.findByCategoryAndIsDeletedFalse(category);
+            docs = documentRepository.findByCategoryAndIsDeletedFalse(category);
         } else {
-            return documentRepository.findByIsDeletedFalse();
+            docs = documentRepository.findByIsDeletedFalse();
         }
+
+        Role.RoleName userRole = Role.RoleName.valueOf(userRoleName);
+        int userLevel = userRole.getLevel();
+
+        // ✅ 읽기 권한이 낮은 문서는 제외
+        return docs.stream()
+                .filter(doc -> userLevel >= doc.getReadRole().getName().getLevel())
+                .collect(Collectors.toList());
     }
 
     public Document getDocument(Long id, String userRoleName) {
