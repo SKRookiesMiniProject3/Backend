@@ -3,11 +3,13 @@ package com.rookies.log2doc.controller;
 import com.rookies.log2doc.dto.request.DocumentUpdateRequest;
 import com.rookies.log2doc.entity.Document;
 import com.rookies.log2doc.entity.Role;
+import com.rookies.log2doc.security.services.UserDetailsImpl;
 import com.rookies.log2doc.service.DocumentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -46,29 +48,48 @@ public class DocumentController {
         return ResponseEntity.ok(savedDoc);
     }
 
+    // 전체 조회
     @GetMapping
     public ResponseEntity<List<Document>> getDocuments(
             @RequestParam(required = false) String category) {
         return ResponseEntity.ok(documentService.getDocumentList(category));
     }
 
+    // 단일 조회
     @GetMapping("/{id}")
     public ResponseEntity<Document> getDocument(
             @PathVariable Long id,
-            @RequestParam String userRoleName) {
-        Document doc = documentService.getDocument(id, userRoleName);
+            @AuthenticationPrincipal UserDetailsImpl userDetails
+    ) {
+        Document doc = documentService.getDocument(id, userDetails.getRoleName());
         return ResponseEntity.ok(doc);
     }
 
+    // 문서 파일 다운로드
     @GetMapping("/download/{id}")
     public ResponseEntity<Resource> downloadDocument(
             @PathVariable Long id,
-            @RequestParam String userRoleName) throws MalformedURLException {
-        Resource fileResource = documentService.loadFileAsResource(id, userRoleName);
+            @AuthenticationPrincipal UserDetailsImpl userDetails) throws MalformedURLException {
+        Resource fileResource = documentService.loadFileAsResource(id, userDetails.getRoleName());
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
                         "attachment; filename=\"" + fileResource.getFilename() + "\"")
+                .body(fileResource);
+    }
+
+    // 문서 파일 해시 경로
+    @GetMapping("/files/{hash}")
+    public ResponseEntity<Resource> downloadByHash(
+            @PathVariable String hash,
+            @AuthenticationPrincipal UserDetailsImpl userDetails
+    ) throws MalformedURLException {
+        Resource fileResource = documentService.loadFileAsResourceByHash(hash, userDetails.getRoleName());
+        Document doc = documentService.getDocumentByHash(hash);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"" + doc.getFileName() + "\"")
                 .body(fileResource);
     }
 
@@ -77,9 +98,9 @@ public class DocumentController {
     public ResponseEntity<Document> updateDocument(
             @PathVariable Long id,
             @RequestBody DocumentUpdateRequest updateRequest,
-            @RequestParam String userRoleName
+            @AuthenticationPrincipal UserDetailsImpl userDetails
     ) {
-        Document updated = documentService.updateDocument(id, updateRequest, userRoleName);
+        Document updated = documentService.updateDocument(id, updateRequest, userDetails.getRoleName());
         return ResponseEntity.ok(updated);
     }
 
@@ -88,30 +109,30 @@ public class DocumentController {
     public ResponseEntity<Document> patchDocument(
             @PathVariable Long id,
             @RequestBody Map<String, Object> updates,
-            @RequestParam String userRoleName
+            @AuthenticationPrincipal UserDetailsImpl userDetails
     ) {
-        Document patched = documentService.patchDocument(id, updates, userRoleName);
+        Document patched = documentService.patchDocument(id, updates, userDetails.getRoleName());
         return ResponseEntity.ok(patched);
     }
 
+    // 문서 소프트 삭제
     @DeleteMapping("/{id}/soft")
     public ResponseEntity<Void> softDelete(
             @PathVariable Long id,
-            @RequestParam("userRoleName") String userRoleName
+            @AuthenticationPrincipal UserDetailsImpl userDetails
     ) {
-        documentService.softDeleteDocument(id, userRoleName);
+        documentService.softDeleteDocument(id, userDetails.getRoleName());
         return ResponseEntity.ok().build();
     }
 
+    // 문서 하드 삭제
     @DeleteMapping("/{id}/hard")
     public ResponseEntity<Void> hardDeleteDocument(
             @PathVariable Long id,
-            @RequestParam("userRoleName") String userRoleName // ✔️ 이렇게 맞춰주기!
+            @AuthenticationPrincipal UserDetailsImpl userDetails
     ) {
-        documentService.hardDeleteDocument(id, userRoleName);
+        documentService.hardDeleteDocument(id, userDetails.getRoleName());
         return ResponseEntity.ok().build();
     }
-
-
 
 }

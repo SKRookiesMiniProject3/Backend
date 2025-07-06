@@ -54,7 +54,7 @@ public class DocumentService {
                 .filter(d -> !d.isDeleted())
                 .orElseThrow(() -> new RuntimeException("문서를 찾을 수 없습니다."));
 
-        // ✅ 삭제 여부 확인
+        // 삭제 여부 확인
         if (doc.isDeleted()) {
             log.warn("삭제된 문서입니다. [id={}]", id);  // 콘솔에 남김
             throw new RuntimeException("삭제된 문서입니다.");
@@ -64,17 +64,16 @@ public class DocumentService {
         int userLevel = userRole.getLevel();
         int requiredLevel = doc.getReadRole().getName().getLevel();
 
-        if (userLevel < requiredLevel) {
+        if (!userRole.equals(Role.RoleName.CEO) && userLevel < requiredLevel) {
             throw new PermissionDeniedException("읽기 권한이 없습니다!");
         }
-
         return doc;
     }
 
     public Document uploadDocument(MultipartFile file, String category,
                                    Long readRoleId, Long writeRoleId, Long deleteRoleId) throws IOException {
 
-        // ✅ FK Role 조회
+        // FK Role 조회
         Role readRole = roleRepository.findById(readRoleId)
                 .orElseThrow(() -> new RuntimeException("읽기 권한 Role 없음"));
         Role writeRole = roleRepository.findById(writeRoleId)
@@ -82,29 +81,34 @@ public class DocumentService {
         Role deleteRole = roleRepository.findById(deleteRoleId)
                 .orElseThrow(() -> new RuntimeException("삭제 권한 Role 없음"));
 
-        // ✅ 파일 처리
+        // 파일 처리
         String originalFileName = file.getOriginalFilename();
         String extension = "";
         if (originalFileName != null && originalFileName.contains(".")) {
             extension = originalFileName.substring(originalFileName.lastIndexOf("."));
         }
-        String hashedFileName = UUID.randomUUID() + extension;
+
+        // UUID만 생성
+        String uuid = UUID.randomUUID().toString();
+
+        // 저장할 파일명 = UUID + 확장자
+        String storedFileName = uuid + extension;
 
         Path uploadDir = Paths.get("uploads");
         Files.createDirectories(uploadDir);
 
-        Path filePath = uploadDir.resolve(hashedFileName);
-        Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+        Path savePath = uploadDir.resolve(storedFileName);
+        Files.copy(file.getInputStream(), savePath, StandardCopyOption.REPLACE_EXISTING);
 
-        // ✅ Document 저장
+        // Document 저장
         Document doc = new Document();
         doc.setFileName(originalFileName);
-        doc.setFilePath(filePath.toString());
+        doc.setFilePath(uuid);  // uploads/ 빼고 UUID만
         doc.setMimeType(file.getContentType());
         doc.setFileSize(file.getSize());
         doc.setCategory(category);
         doc.setCreatedAt(LocalDateTime.now());
-        doc.setReadRole(readRole);      // FK 연결!
+        doc.setReadRole(readRole);
         doc.setWriteRole(writeRole);
         doc.setDeleteRole(deleteRole);
 
@@ -120,12 +124,39 @@ public class DocumentService {
         int userLevel = userRole.getLevel();
         int requiredLevel = doc.getReadRole().getName().getLevel();
 
-        if (userLevel < requiredLevel) {
+        if (!userRole.equals(Role.RoleName.CEO) && userLevel < requiredLevel) {
             throw new PermissionDeniedException("읽기 권한이 없습니다!");
         }
 
         Path filePath = Paths.get(doc.getFilePath());
         return new UrlResource(filePath.toUri());
+    }
+
+    public Resource loadFileAsResourceByHash(String hash, String userRoleName) throws MalformedURLException {
+        Document doc = documentRepository.findByFilePath(hash)
+                .orElseThrow(() -> new RuntimeException("파일 없음"));
+
+        // 권한 체크
+        Role.RoleName userRole = Role.RoleName.valueOf(userRoleName);
+        int userLevel = userRole.getLevel();
+        int requiredLevel = doc.getReadRole().getName().getLevel();
+
+        if (!userRole.equals(Role.RoleName.CEO) && userLevel < requiredLevel) {
+            throw new PermissionDeniedException("읽기 권한이 없습니다!");
+        }
+
+        String extension = getFileExtension(doc.getFileName());
+        Path path = Paths.get("uploads").resolve(hash + extension);
+        return new UrlResource(path.toUri());
+    }
+
+    public Document getDocumentByHash(String hash) {
+        return documentRepository.findByFilePath(hash)
+                .orElseThrow(() -> new RuntimeException("문서 없음"));
+    }
+
+    private String getFileExtension(String filename) {
+        return filename.substring(filename.lastIndexOf("."));
     }
 
     // 전체 교체
@@ -164,9 +195,11 @@ public class DocumentService {
 
     // 권한 체크
     private void checkWritePermission(Document doc, String userRoleName) {
-        int userLevel = Role.RoleName.valueOf(userRoleName).getLevel();
+        Role.RoleName userRoleEnum = Role.RoleName.valueOf(userRoleName);
+        int userLevel = userRoleEnum.getLevel();
         int requiredLevel = doc.getWriteRole().getName().getLevel();
-        if (userLevel < requiredLevel) {
+
+        if (!userRoleEnum.equals(Role.RoleName.CEO) && userLevel < requiredLevel) {
             throw new PermissionDeniedException("쓰기 권한 없음");
         }
     }
@@ -196,8 +229,9 @@ public class DocumentService {
         int userLevel = userRoleEnum.getLevel();
         int requiredLevel = doc.getDeleteRole().getName().getLevel();
 
-        if (userLevel < requiredLevel) {
-            throw new PermissionDeniedException("삭제 권한이 없습니다!");
+        // CEO(최고 권위자) 모두 허용, 그 외에는 같거나 높으면 허용
+        if (!userRoleEnum.equals(Role.RoleName.CEO) && userLevel < requiredLevel) {
+            throw new PermissionDeniedException("권한이 부족합니다!");
         }
 
         documentRepository.delete(doc);

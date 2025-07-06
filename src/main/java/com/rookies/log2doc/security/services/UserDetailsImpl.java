@@ -1,5 +1,6 @@
 package com.rookies.log2doc.security.services;
 
+import com.rookies.log2doc.entity.Role;
 import com.rookies.log2doc.entity.User;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -24,6 +25,8 @@ public class UserDetailsImpl implements UserDetails {
     private String email;
     private String password;
     private Collection<? extends GrantedAuthority> authorities;
+    private Role.RoleName currentRoleName;
+    private String roleName;
 
     /**
      * User 엔티티로부터 UserDetails 객체를 생성하는 팩토리 메서드
@@ -52,7 +55,9 @@ public class UserDetailsImpl implements UserDetails {
                 user.getUsername(),
                 user.getEmail(),
                 user.getPassword(),
-                authorities
+                authorities,
+                user.getCurrentRoleName(),
+                currentRoleName
         );
     }
 
