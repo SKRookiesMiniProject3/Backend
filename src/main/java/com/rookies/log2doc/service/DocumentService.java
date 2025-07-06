@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -97,10 +98,11 @@ public class DocumentService {
     /**
      * 문서 리스트 조회 (카테고리, 기간, 권한)
      */
+    @Transactional(readOnly = true)
     public List<Document> getDocumentList(String category, String userRoleName, LocalDate startDate, LocalDate endDate) {
         List<Document> docs = (category != null && !category.isEmpty())
-                ? documentRepository.findByCategoryAndIsDeletedFalse(category)
-                : documentRepository.findByIsDeletedFalse();
+                ? documentRepository.findByCategoryAndIsDeletedFalseWithRoles(category)
+                : documentRepository.findAllWithRoles();
 
         Role.RoleName userRole = Role.RoleName.valueOf(userRoleName);
         int userLevel = userRole.getLevel();
@@ -114,9 +116,9 @@ public class DocumentService {
     /**
      * 단일 문서 조회 (읽기 권한 확인)
      */
+    @Transactional(readOnly = true)
     public Document getDocument(Long id, String userRoleName) {
-        Document doc = documentRepository.findById(id)
-                .filter(d -> !d.isDeleted())
+        Document doc = documentRepository.findByIdWithRoles(id)
                 .orElseThrow(() -> new RuntimeException("문서를 찾을 수 없습니다."));
 
         checkReadPermission(doc, userRoleName);
@@ -126,25 +128,33 @@ public class DocumentService {
     /**
      * 파일 다운로드 (문서 ID 기준)
      */
+    @Transactional(readOnly = true)
     public Resource loadFileAsResource(Long id, String userRoleName) throws MalformedURLException {
-        Document doc = documentRepository.findById(id)
+        Document doc = documentRepository.findByIdWithRoles(id)
                 .orElseThrow(() -> new RuntimeException("문서를 찾을 수 없습니다."));
         checkReadPermission(doc, userRoleName);
 
-        Path filePath = Paths.get(doc.getFilePath());
+        String extension = getFileExtension(doc.getFileName());
+        Path filePath = Paths.get("uploads").resolve(doc.getFilePath() + extension);
+
+        log.info("파일 다운로드 경로: {}", filePath.toAbsolutePath());
         return new UrlResource(filePath.toUri());
     }
 
     /**
      * 파일 다운로드 (해시 경로 기준)
      */
+    @Transactional(readOnly = true)
     public Resource loadFileAsResourceByHash(String hash, String userRoleName) throws MalformedURLException {
-        Document doc = documentRepository.findByFilePath(hash)
+        Document doc = documentRepository.findByFilePathWithRoles(hash)
                 .orElseThrow(() -> new RuntimeException("파일 없음"));
+
         checkReadPermission(doc, userRoleName);
 
         String extension = getFileExtension(doc.getFileName());
         Path path = Paths.get("uploads").resolve(hash + extension);
+
+        log.info("파일 다운로드(해시) 경로: {}", path.toAbsolutePath());
         return new UrlResource(path.toUri());
     }
 
@@ -159,8 +169,9 @@ public class DocumentService {
     /**
      * 문서 전체 수정 (쓰기 권한 확인)
      */
+    @Transactional
     public Document updateDocument(Long id, DocumentUpdateRequest req, String userRoleName) {
-        Document doc = documentRepository.findById(id)
+        Document doc = documentRepository.findByIdWithRoles(id)   // ✅ 꼭 이걸로!
                 .orElseThrow(() -> new RuntimeException("문서 없음"));
         checkWritePermission(doc, userRoleName);
 
@@ -173,8 +184,9 @@ public class DocumentService {
     /**
      * 문서 일부 수정 (쓰기 권한 확인)
      */
+    @Transactional
     public Document patchDocument(Long id, Map<String, Object> updates, String userRoleName) {
-        Document doc = documentRepository.findById(id)
+        Document doc = documentRepository.findByIdWithRoles(id)
                 .orElseThrow(() -> new RuntimeException("문서 없음"));
         checkWritePermission(doc, userRoleName);
 
@@ -187,11 +199,13 @@ public class DocumentService {
         return documentRepository.save(doc);
     }
 
+
     /**
      * 문서 소프트 삭제 (삭제 권한 확인)
      */
+    @Transactional
     public void softDeleteDocument(Long id, String userRoleName) {
-        Document doc = documentRepository.findById(id)
+        Document doc = documentRepository.findByIdWithRoles(id)
                 .orElseThrow(() -> new RuntimeException("문서를 찾을 수 없습니다."));
         checkDeletePermission(doc, userRoleName);
 
@@ -203,8 +217,9 @@ public class DocumentService {
     /**
      * 문서 하드 삭제 (삭제 권한 확인)
      */
+    @Transactional
     public void hardDeleteDocument(Long id, String userRoleName) {
-        Document doc = documentRepository.findById(id)
+        Document doc = documentRepository.findByIdWithRolesIgnoreIsDeleted(id)
                 .orElseThrow(() -> new RuntimeException("문서를 찾을 수 없습니다."));
         checkDeletePermission(doc, userRoleName);
 
