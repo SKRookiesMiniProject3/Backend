@@ -21,6 +21,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -53,12 +54,12 @@ public class DocumentService {
         doc.setReadRole(readRole);
         doc.setWriteRole(writeRole);
         doc.setDeleteRole(deleteRole);
+        doc.setCreatedAt(LocalDateTime.now());
 
         return documentRepository.save(doc);
     }
 
-    // ✅ 서비스 수정 예시
-    public List<Document> getDocumentList(String category, String userRoleName) {
+    public List<Document> getDocumentList(String category, String userRoleName, LocalDate startDate, LocalDate endDate) {
         List<Document> docs;
 
         if (category != null && !category.isEmpty()) {
@@ -70,10 +71,20 @@ public class DocumentService {
         Role.RoleName userRole = Role.RoleName.valueOf(userRoleName);
         int userLevel = userRole.getLevel();
 
-        // ✅ 읽기 권한이 낮은 문서는 제외
         return docs.stream()
                 .filter(doc -> userLevel >= doc.getReadRole().getName().getLevel())
+                .filter(doc -> isInDateRange(doc.getCreatedAt(), startDate, endDate)) // ✅ 추가
                 .collect(Collectors.toList());
+    }
+
+    private boolean isInDateRange(LocalDateTime createdAt, LocalDate startDate, LocalDate endDate) {
+        if (startDate != null && createdAt.toLocalDate().isBefore(startDate)) {
+            return false;
+        }
+        if (endDate != null && createdAt.toLocalDate().isAfter(endDate)) {
+            return false;
+        }
+        return true;
     }
 
     public Document getDocument(Long id, String userRoleName) {

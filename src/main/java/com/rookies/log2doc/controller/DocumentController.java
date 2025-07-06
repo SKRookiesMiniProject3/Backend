@@ -18,6 +18,8 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.util.List;
 import java.util.Map;
+import org.springframework.format.annotation.DateTimeFormat;
+import java.time.LocalDate;
 
 @RestController
 @RequestMapping("/documents")
@@ -53,10 +55,17 @@ public class DocumentController {
     @GetMapping
     public ResponseEntity<List<Document>> getDocuments(
             @RequestParam(required = false) String category,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @AuthenticationPrincipal UserDetailsImpl userDetails
     ) {
         return ResponseEntity.ok(
-                documentService.getDocumentList(category, userDetails.getRoleName())
+                documentService.getDocumentList(
+                        category,
+                        userDetails.getRoleName(),
+                        startDate,
+                        endDate
+                )
         );
     }
 
