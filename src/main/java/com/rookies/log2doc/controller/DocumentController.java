@@ -46,16 +46,21 @@ public class DocumentController {
     @PostMapping("/upload")
     public ResponseEntity<Document> uploadDocument(
             @RequestParam MultipartFile file,
-            @RequestParam String category,
+            @RequestParam Long categoryTypeId,  // ✅ categoryTypeId로 변경
             @RequestParam Long readRoleId,
             @RequestParam Long writeRoleId,
             @RequestParam Long deleteRoleId,
             @AuthenticationPrincipal UserDetailsImpl userDetails
     ) throws IOException {
         Document saved = documentService.uploadDocument(
-                file, category, readRoleId, writeRoleId, deleteRoleId,
-                userDetails.getId(), userDetails.getRoleName()
-        ); // 작성자 정보 서비스로 넘김
+                file,
+                categoryTypeId, // ✅ 문자열 X
+                readRoleId,
+                writeRoleId,
+                deleteRoleId,
+                userDetails.getId(),
+                userDetails.getRoleName()
+        );
 
         return ResponseEntity.ok(saved);
     }
@@ -66,13 +71,13 @@ public class DocumentController {
      */
     @GetMapping
     public ResponseEntity<List<Document>> getDocuments(
-            @RequestParam(required = false) String category,
+            @RequestParam(required = false) Long categoryTypeId, // String → Long 바꿈
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @AuthenticationPrincipal UserDetailsImpl userDetails
     ) {
         List<Document> result = documentService.getDocumentList(
-                category,
+                categoryTypeId,
                 userDetails.getRoleName(),
                 startDate,
                 endDate
@@ -123,6 +128,23 @@ public class DocumentController {
                 .header(HttpHeaders.CONTENT_DISPOSITION,
                         "attachment; filename=\"" + doc.getFileName() + "\"")
                 .body(fileResource);
+    }
+
+    @GetMapping("/{id}/status")
+    public ResponseEntity<Map<String, Object>> getDocumentStatus(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetailsImpl userDetails
+    ) {
+        // 1) 권한 체크
+        Document doc = documentService.getDocument(id, userDetails.getRoleName());
+
+        // 2) 상태 필드가 doc에 있다면!
+        Map<String, Object> result = Map.of(
+                "documentId", doc.getId(),
+                "status", doc.getStatus()  // ✅ Document 엔티티에 status 필드가 있어야 함!
+        );
+
+        return ResponseEntity.ok(result);
     }
 
     /**

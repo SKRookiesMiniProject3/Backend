@@ -16,11 +16,6 @@ import java.util.Optional;
 public interface DocumentRepository extends JpaRepository<Document, Long> {
 
     /**
-     * 카테고리별 문서 리스트 조회 (Soft Delete 제외)
-     */
-    List<Document> findByCategoryAndIsDeletedFalse(String category);
-
-    /**
      * 삭제되지 않은 모든 문서 리스트 조회
      */
     List<Document> findByIsDeletedFalse();
@@ -30,17 +25,17 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
      */
     Optional<Document> findByFilePath(String filePath);
 
-    /**
-     * 카테고리별 문서 리스트 조회 + 권한 Role Fetch Join (Soft Delete 제외)
-     */
     @Query("""
-        SELECT d FROM Document d
-        JOIN FETCH d.readRole
-        JOIN FETCH d.writeRole
-        JOIN FETCH d.deleteRole
-        WHERE d.isDeleted = false AND d.category = :category
-    """)
-    List<Document> findByCategoryAndIsDeletedFalseWithRoles(@Param("category") String category);
+    SELECT DISTINCT d FROM Document d
+    JOIN d.documentCategories dc
+    JOIN dc.categoryType ct
+    JOIN FETCH d.readRole
+    JOIN FETCH d.writeRole
+    JOIN FETCH d.deleteRole
+    WHERE d.isDeleted = false
+    AND ct.id = :categoryTypeId
+""")
+    List<Document> findByCategoryTypeIdAndIsDeletedFalseWithRoles(@Param("categoryTypeId") Long categoryTypeId);
 
     /**
      * 전체 문서 리스트 조회 + 권한 Role Fetch Join (Soft Delete 제외)
