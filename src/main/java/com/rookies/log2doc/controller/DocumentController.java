@@ -5,6 +5,7 @@ import com.rookies.log2doc.dto.request.DocumentUpdateRequest;
 import com.rookies.log2doc.entity.Document;
 import com.rookies.log2doc.security.services.UserDetailsImpl;
 import com.rookies.log2doc.service.DocumentService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -46,7 +47,7 @@ public class DocumentController {
     @PostMapping("/upload")
     public ResponseEntity<Document> uploadDocument(
             @RequestParam MultipartFile file,
-            @RequestParam Long categoryTypeId,  // ✅ categoryTypeId로 변경
+            @RequestParam Long categoryTypeId,  // categoryTypeId로 변경
             @RequestParam Long readRoleId,
             @RequestParam Long writeRoleId,
             @RequestParam Long deleteRoleId,
@@ -54,7 +55,7 @@ public class DocumentController {
     ) throws IOException {
         Document saved = documentService.uploadDocument(
                 file,
-                categoryTypeId, // ✅ 문자열 X
+                categoryTypeId, // 문자열 X
                 readRoleId,
                 writeRoleId,
                 deleteRoleId,
@@ -91,8 +92,11 @@ public class DocumentController {
     @GetMapping("/{id}")
     public ResponseEntity<Document> getDocument(
             @PathVariable Long id,
-            @AuthenticationPrincipal UserDetailsImpl userDetails
+            @AuthenticationPrincipal UserDetailsImpl userDetails,
+            HttpServletRequest request   // request 파라미터 추가
     ) {
+        request.setAttribute("document_id", id);  // 문서 ID 저장
+
         Document doc = documentService.getDocument(id, userDetails.getRoleName());
         return ResponseEntity.ok(doc);
     }
