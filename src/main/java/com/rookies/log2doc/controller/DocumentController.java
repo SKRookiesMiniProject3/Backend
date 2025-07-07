@@ -130,6 +130,23 @@ public class DocumentController {
                 .body(fileResource);
     }
 
+    @GetMapping("/{id}/status")
+    public ResponseEntity<Map<String, Object>> getDocumentStatus(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetailsImpl userDetails
+    ) {
+        // 1) 권한 체크
+        Document doc = documentService.getDocument(id, userDetails.getRoleName());
+
+        // 2) 상태 필드가 doc에 있다면!
+        Map<String, Object> result = Map.of(
+                "documentId", doc.getId(),
+                "status", doc.getStatus()  // ✅ Document 엔티티에 status 필드가 있어야 함!
+        );
+
+        return ResponseEntity.ok(result);
+    }
+
     /**
      * 문서 전체 수정 (PUT)
      */

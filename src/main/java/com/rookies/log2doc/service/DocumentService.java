@@ -52,15 +52,17 @@ public class DocumentService {
         doc.setWriteRole(writeRole);
         doc.setDeleteRole(deleteRole);
         doc.setCreatedAt(LocalDateTime.now());
-        doc.setAuthor(String.valueOf(userId)); // 작성자 ID
-        doc.setCreatedRole(userRoleName);      // 작성자 권한
+        doc.setAuthor(String.valueOf(userId));
+        doc.setCreatedRole(userRoleName);
 
-        documentRepository.save(doc);
-
-        // CategoryType FK 연결
+        // ✅ FK로 CategoryType 가져오기
         CategoryType categoryType = categoryTypeRepository.findById(req.getCategoryTypeId())
                 .orElseThrow(() -> new RuntimeException("카테고리 타입 없음"));
 
+        // ✅ Document 저장
+        documentRepository.save(doc);
+
+        // ✅ DocumentCategory 매핑
         DocumentCategory mapping = new DocumentCategory();
         mapping.setDocument(doc);
         mapping.setCategoryType(categoryType);
@@ -75,7 +77,7 @@ public class DocumentService {
     @Transactional
     public Document uploadDocument(
             MultipartFile file,
-            Long categoryTypeId,  // 문자열 대신 ID
+            Long categoryTypeId,
             Long readRoleId, Long writeRoleId, Long deleteRoleId,
             Long userId, String userRoleName
     ) throws IOException {
@@ -89,7 +91,6 @@ public class DocumentService {
         String uuid = UUID.randomUUID().toString();
         String storedFileName = uuid + extension;
 
-        // uploads 디렉토리 생성 후 저장
         Path uploadDir = Paths.get("uploads");
         Files.createDirectories(uploadDir);
         Path savePath = uploadDir.resolve(storedFileName);
@@ -107,11 +108,11 @@ public class DocumentService {
         doc.setAuthor(String.valueOf(userId));
         doc.setCreatedRole(userRoleName);
 
-        documentRepository.save(doc);
-
-        // CategoryType FK 연결
+        // ✅ FK 가져오기
         CategoryType categoryType = categoryTypeRepository.findById(categoryTypeId)
                 .orElseThrow(() -> new RuntimeException("카테고리 타입 없음"));
+
+        documentRepository.save(doc);
 
         DocumentCategory mapping = new DocumentCategory();
         mapping.setDocument(doc);
@@ -125,19 +126,10 @@ public class DocumentService {
      * 문서 리스트 조회 (카테고리, 기간, 권한)
      */
     @Transactional(readOnly = true)
-    public List<Document> getDocumentList(
-            Long categoryTypeId,  // ✅ 문자열 대신 ID
-            String userRoleName,
-            LocalDate startDate,
-            LocalDate endDate
-    ) {
-        List<Document> docs;
-
-        if (categoryTypeId != null) {
-            docs = documentRepository.findByCategoryTypeIdAndIsDeletedFalseWithRoles(categoryTypeId);
-        } else {
-            docs = documentRepository.findAllWithRoles();
-        }
+    public List<Document> getDocumentList(Long categoryTypeId, String userRoleName, LocalDate startDate, LocalDate endDate) {
+        List<Document> docs = (categoryTypeId != null)
+                ? documentRepository.findByCategoryTypeIdAndIsDeletedFalseWithRoles(categoryTypeId)
+                : documentRepository.findAllWithRoles();
 
         Role.RoleName userRole = Role.RoleName.valueOf(userRoleName);
         int userLevel = userRole.getLevel();
@@ -237,7 +229,7 @@ public class DocumentService {
                 .orElseThrow(() -> new RuntimeException("문서를 찾을 수 없습니다."));
         checkDeletePermission(doc, userRoleName);
 
-        doc.setDeleted(true);
+        doc.setIsDeleted(true);
         doc.setDeletedAt(LocalDateTime.now());
         documentRepository.save(doc);
     }

@@ -1,7 +1,9 @@
 package com.rookies.log2doc.entity;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -10,6 +12,8 @@ import java.util.List;
 @Entity
 @Table(name = "category_type")
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class CategoryType {
 
     @Id
