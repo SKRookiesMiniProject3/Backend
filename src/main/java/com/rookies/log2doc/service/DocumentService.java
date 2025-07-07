@@ -39,7 +39,7 @@ public class DocumentService {
     /**
      * 텍스트 문서 생성
      */
-    public Document createTextDocument(DocumentCreateRequest req) {
+    public Document createTextDocument(DocumentCreateRequest req, Long userId, String userRoleName) {
         Role readRole = getRoleById(req.getReadRoleId(), "읽기");
         Role writeRole = getRoleById(req.getWriteRoleId(), "쓰기");
         Role deleteRole = getRoleById(req.getDeleteRoleId(), "삭제");
@@ -52,6 +52,8 @@ public class DocumentService {
         doc.setWriteRole(writeRole);
         doc.setDeleteRole(deleteRole);
         doc.setCreatedAt(LocalDateTime.now());
+        doc.setAuthor(String.valueOf(userId));// 작성자 ID
+        doc.setCreatedRole(userRoleName); // 작성자 권한
 
         return documentRepository.save(doc);
     }
@@ -60,7 +62,8 @@ public class DocumentService {
      * 파일 업로드 후 문서 생성
      */
     public Document uploadDocument(MultipartFile file, String category,
-                                   Long readRoleId, Long writeRoleId, Long deleteRoleId) throws IOException {
+                                   Long readRoleId, Long writeRoleId, Long deleteRoleId, Long userId, String userRoleName)
+            throws IOException {
 
         Role readRole = getRoleById(readRoleId, "읽기");
         Role writeRole = getRoleById(writeRoleId, "쓰기");
@@ -91,6 +94,8 @@ public class DocumentService {
         doc.setReadRole(readRole);
         doc.setWriteRole(writeRole);
         doc.setDeleteRole(deleteRole);
+        doc.setAuthor(String.valueOf(userId));
+        doc.setCreatedRole(userRoleName);
 
         return documentRepository.save(doc);
     }

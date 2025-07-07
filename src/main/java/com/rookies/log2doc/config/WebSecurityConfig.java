@@ -6,6 +6,7 @@ import com.rookies.log2doc.security.services.UserDetailsServiceImpl;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -70,8 +71,8 @@ public class WebSecurityConfig {
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                             // 모든 /documents/** 경로는 인증 없이 접근 허용
                             // -> 대신 DocumentService 내부에서 역할별 권한을 직접 검증함
-                        .requestMatchers("/documents/**").permitAll()
-                        .anyRequest().authenticated()
+                        .requestMatchers(HttpMethod.POST, "/documents/**").authenticated()
+                                .anyRequest().authenticated()
                 );
         
         http.authenticationProvider(authenticationProvider());

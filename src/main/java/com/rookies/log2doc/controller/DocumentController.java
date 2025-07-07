@@ -31,8 +31,12 @@ public class DocumentController {
      * 텍스트 문서 생성
      */
     @PostMapping
-    public ResponseEntity<Document> createDocument(@RequestBody DocumentCreateRequest req) {
-        Document created = documentService.createTextDocument(req);
+    public ResponseEntity<Document> createDocument(
+            @RequestBody DocumentCreateRequest req,
+            @AuthenticationPrincipal UserDetailsImpl userDetails // 이거 추가!
+    ) {
+        // userDetails.getId(), userDetails.getRoleName() 넘겨서 누가 만들었는지 기록!
+        Document created = documentService.createTextDocument(req, userDetails.getId(), userDetails.getRoleName());
         return ResponseEntity.ok(created);
     }
 
@@ -45,9 +49,14 @@ public class DocumentController {
             @RequestParam String category,
             @RequestParam Long readRoleId,
             @RequestParam Long writeRoleId,
-            @RequestParam Long deleteRoleId
+            @RequestParam Long deleteRoleId,
+            @AuthenticationPrincipal UserDetailsImpl userDetails
     ) throws IOException {
-        Document saved = documentService.uploadDocument(file, category, readRoleId, writeRoleId, deleteRoleId);
+        Document saved = documentService.uploadDocument(
+                file, category, readRoleId, writeRoleId, deleteRoleId,
+                userDetails.getId(), userDetails.getRoleName()
+        ); // 작성자 정보 서비스로 넘김
+
         return ResponseEntity.ok(saved);
     }
 

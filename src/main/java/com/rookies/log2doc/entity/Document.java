@@ -50,6 +50,12 @@ public class Document {
     private String author;
 
     /**
+    * 작성자 권한 저장 필드
+    */
+    @Column(name = "created_role")
+    private String createdRole;
+
+    /**
      * 소프트 삭제 여부
      */
     @Column(nullable = false)
