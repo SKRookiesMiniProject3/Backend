@@ -27,6 +27,8 @@ public class UserDetailsImpl implements UserDetails {
     private Collection<? extends GrantedAuthority> authorities;
     private Role.RoleName currentRoleName;
     private String roleName;
+    private int roleId;                     // 직급 ID 숫자!
+
 
     /**
      * User 엔티티로부터 UserDetails 객체를 생성하는 팩토리 메서드
@@ -57,7 +59,8 @@ public class UserDetailsImpl implements UserDetails {
                 user.getPassword(),
                 authorities,
                 user.getCurrentRoleName(),
-                currentRoleName
+                currentRoleName,
+                user.getCurrentLevel()
         );
     }
 

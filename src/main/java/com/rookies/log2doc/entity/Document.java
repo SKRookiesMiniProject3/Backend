@@ -31,6 +31,11 @@ public class Document {
     @Column(nullable = true)
     private String content;
 
+    @Enumerated(EnumType.STRING)
+    private DocumentClassification classification;  // 기밀 등급 필드 추가
+
+    private String owner;  // 작성자 user_id
+
     /**
      * 파일 업로드 관련 정보
      */

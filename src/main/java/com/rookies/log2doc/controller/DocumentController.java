@@ -97,7 +97,7 @@ public class DocumentController {
     ) {
         request.setAttribute("document_id", id);  // 문서 ID 저장
 
-        Document doc = documentService.getDocument(id, userDetails.getRoleName());
+        Document doc = documentService.getDocument(id, userDetails.getRoleId());
         return ResponseEntity.ok(doc);
     }
 
@@ -109,7 +109,7 @@ public class DocumentController {
             @PathVariable Long id,
             @AuthenticationPrincipal UserDetailsImpl userDetails
     ) throws MalformedURLException {
-        Resource fileResource = documentService.loadFileAsResource(id, userDetails.getRoleName());
+        Resource fileResource = documentService.loadFileAsResource(id, userDetails.getRoleId());
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
@@ -125,7 +125,7 @@ public class DocumentController {
             @PathVariable String hash,
             @AuthenticationPrincipal UserDetailsImpl userDetails
     ) throws MalformedURLException {
-        Resource fileResource = documentService.loadFileAsResourceByHash(hash, userDetails.getRoleName());
+        Resource fileResource = documentService.loadFileAsResourceByHash(hash, userDetails.getRoleId());
         Document doc = documentService.getDocumentByHash(hash);
 
         return ResponseEntity.ok()
@@ -140,7 +140,7 @@ public class DocumentController {
             @AuthenticationPrincipal UserDetailsImpl userDetails
     ) {
         // 1) 권한 체크
-        Document doc = documentService.getDocument(id, userDetails.getRoleName());
+        Document doc = documentService.getDocument(id, userDetails.getRoleId());
 
         // 2) 상태 필드가 doc에 있다면!
         Map<String, Object> result = Map.of(

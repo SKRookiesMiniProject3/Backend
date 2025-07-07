@@ -51,6 +51,8 @@ public class GlobalExceptionHandler {
         logData.put("access_result", accessResult);
         logData.put("error_message", errorMessage);
 
+        log.info("📡 Flask로 보낼 로그 데이터: {}", logData); // ✅ 여기서 찍음!
+
         RestTemplate restTemplate = new RestTemplate();
         restTemplate.postForEntity("http://flask-server/logs", logData, String.class);
     }
@@ -111,12 +113,17 @@ public class GlobalExceptionHandler {
      * 일반 런타임 예외 처리
      */
     @ExceptionHandler(RuntimeException.class)
-    public ResponseEntity<MessageResponse> handleRuntimeException(RuntimeException e) {
+    public ResponseEntity<MessageResponse> handleRuntimeException(RuntimeException e, HttpServletRequest request) {
         log.error("런타임 오류: {}", e.getMessage());
+        log.info(">>> sendLogToFlask() 전송 테스트용 로그");
+
+        // Flask로 전송
+        sendLogToFlask(request, e.getMessage(), "ERROR", "READ");
+
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(new MessageResponse("서버 내부 오류가 발생했습니다.", false));
     }
-    
+
     /**
      * 일반 예외 처리
      */

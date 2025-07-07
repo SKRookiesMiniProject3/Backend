@@ -54,6 +54,8 @@ public class DocumentService {
         doc.setCreatedAt(LocalDateTime.now());
         doc.setAuthor(String.valueOf(userId));
         doc.setCreatedRole(userRoleName);
+        doc.setClassification(req.getClassification());  // 등급 저장
+        doc.setOwner(userId.toString());                 // 작성자 저장
 
         // ✅ FK로 CategoryType 가져오기
         CategoryType categoryType = categoryTypeRepository.findById(req.getCategoryTypeId())
@@ -144,10 +146,11 @@ public class DocumentService {
      * 단일 문서 조회 (읽기 권한)
      */
     @Transactional(readOnly = true)
-    public Document getDocument(Long id, String userRoleName) {
+    public Document getDocument(Long id, int userRoleId) {
         Document doc = documentRepository.findByIdWithRoles(id)
                 .orElseThrow(() -> new RuntimeException("문서를 찾을 수 없습니다."));
-        checkReadPermission(doc, userRoleName);
+
+        checkReadPermission(doc, userRoleId);
         return doc;
     }
 
@@ -155,10 +158,10 @@ public class DocumentService {
      * 파일 다운로드 (문서 ID 기준)
      */
     @Transactional(readOnly = true)
-    public Resource loadFileAsResource(Long id, String userRoleName) throws MalformedURLException {
+    public Resource loadFileAsResource(Long id, int userRoleId) throws MalformedURLException {
         Document doc = documentRepository.findByIdWithRoles(id)
                 .orElseThrow(() -> new RuntimeException("문서를 찾을 수 없습니다."));
-        checkReadPermission(doc, userRoleName);
+        checkReadPermission(doc, userRoleId);
 
         String extension = getFileExtension(doc.getFileName());
         Path filePath = Paths.get("uploads").resolve(doc.getFilePath() + extension);
@@ -169,11 +172,11 @@ public class DocumentService {
      * 파일 다운로드 (해시 경로 기준)
      */
     @Transactional(readOnly = true)
-    public Resource loadFileAsResourceByHash(String hash, String userRoleName) throws MalformedURLException {
+    public Resource loadFileAsResourceByHash(String hash, int userRoleId) throws MalformedURLException {
         Document doc = documentRepository.findByFilePathWithRoles(hash)
                 .orElseThrow(() -> new RuntimeException("파일 없음"));
 
-        checkReadPermission(doc, userRoleName);
+        checkReadPermission(doc, userRoleId);  // int로 전달
 
         String extension = getFileExtension(doc.getFileName());
         Path path = Paths.get("uploads").resolve(hash + extension);
@@ -254,8 +257,11 @@ public class DocumentService {
                 .orElseThrow(() -> new RuntimeException(roleType + " 권한 Role 없음"));
     }
 
-    private void checkReadPermission(Document doc, String userRoleName) {
-        checkPermission(doc.getReadRole(), userRoleName, "읽기");
+    private void checkReadPermission(Document doc, int userRoleId) {
+        int minRoleId = doc.getClassification().getMinRoleId();
+        if (userRoleId < minRoleId) {
+            throw new PermissionDeniedException("권한이 부족합니다.");
+        }
     }
 
     private void checkWritePermission(Document doc, String userRoleName) {
