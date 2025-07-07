@@ -26,39 +26,43 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
     Optional<Document> findByFilePath(String filePath);
 
     @Query("""
-    SELECT DISTINCT d FROM Document d
-    JOIN d.documentCategories dc
-    JOIN dc.categoryType ct
-    JOIN FETCH d.readRole
-    JOIN FETCH d.writeRole
-    JOIN FETCH d.deleteRole
-    WHERE d.isDeleted = false
-    AND ct.id = :categoryTypeId
-""")
+            SELECT DISTINCT d FROM Document d
+            JOIN FETCH d.readRole
+            JOIN FETCH d.writeRole
+            JOIN FETCH d.deleteRole
+            LEFT JOIN FETCH d.documentCategories dc
+            LEFT JOIN FETCH dc.categoryType ct
+            WHERE d.isDeleted = false
+            AND ct.id = :categoryTypeId
+            """)
     List<Document> findByCategoryTypeIdAndIsDeletedFalseWithRoles(@Param("categoryTypeId") Long categoryTypeId);
 
     /**
      * 전체 문서 리스트 조회 + 권한 Role Fetch Join (Soft Delete 제외)
      */
     @Query("""
-        SELECT d FROM Document d
-        JOIN FETCH d.readRole
-        JOIN FETCH d.writeRole
-        JOIN FETCH d.deleteRole
-        WHERE d.isDeleted = false
-    """)
+            SELECT DISTINCT d FROM Document d
+            JOIN FETCH d.readRole
+            JOIN FETCH d.writeRole
+            JOIN FETCH d.deleteRole
+            LEFT JOIN FETCH d.documentCategories dc
+            LEFT JOIN FETCH dc.categoryType
+            WHERE d.isDeleted = false
+            """)
     List<Document> findAllWithRoles();
 
     /**
      * ID로 단일 문서 조회 + 권한 Role Fetch Join (Soft Delete 제외)
      */
     @Query("""
-        SELECT d FROM Document d
-        JOIN FETCH d.readRole
-        JOIN FETCH d.writeRole
-        JOIN FETCH d.deleteRole
-        WHERE d.id = :id AND d.isDeleted = false
-    """)
+                SELECT DISTINCT d FROM Document d
+                JOIN FETCH d.readRole
+                JOIN FETCH d.writeRole
+                JOIN FETCH d.deleteRole
+                LEFT JOIN FETCH d.documentCategories dc
+                LEFT JOIN FETCH dc.categoryType
+                WHERE d.id = :id AND d.isDeleted = false
+            """)
     Optional<Document> findByIdWithRoles(@Param("id") Long id);
 
     /**
@@ -66,12 +70,12 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
      * - 하드 삭제 시 사용
      */
     @Query("""
-        SELECT d FROM Document d
-        JOIN FETCH d.readRole
-        JOIN FETCH d.writeRole
-        JOIN FETCH d.deleteRole
-        WHERE d.id = :id
-    """)
+                SELECT d FROM Document d
+                JOIN FETCH d.readRole
+                JOIN FETCH d.writeRole
+                JOIN FETCH d.deleteRole
+                WHERE d.id = :id
+            """)
     Optional<Document> findByIdWithRolesIgnoreIsDeleted(@Param("id") Long id);
 
     /**
@@ -79,12 +83,12 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
      * - 파일 다운로드(해시) 시 사용
      */
     @Query("""
-        SELECT d FROM Document d
-        JOIN FETCH d.readRole
-        JOIN FETCH d.writeRole
-        JOIN FETCH d.deleteRole
-        WHERE d.filePath = :filePath
-    """)
+                SELECT d FROM Document d
+                JOIN FETCH d.readRole
+                JOIN FETCH d.writeRole
+                JOIN FETCH d.deleteRole
+                WHERE d.filePath = :filePath
+            """)
     Optional<Document> findByFilePathWithRoles(@Param("filePath") String filePath);
 
 }

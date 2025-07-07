@@ -44,6 +44,7 @@ public class Document {
      * @OneToMany 연관관계로 대체
      */
     @OneToMany(mappedBy = "document", cascade = CascadeType.ALL, orphanRemoval = true)
+    @com.fasterxml.jackson.annotation.JsonManagedReference // 🔑 JSON 직렬화의 시작점!
     private List<DocumentCategory> documentCategories = new ArrayList<>();
 
     /**

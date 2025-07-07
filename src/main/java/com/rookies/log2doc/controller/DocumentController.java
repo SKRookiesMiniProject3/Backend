@@ -28,19 +28,6 @@ public class DocumentController {
     private DocumentService documentService;
 
     /**
-     * 텍스트 문서 생성
-     */
-    @PostMapping
-    public ResponseEntity<Document> createDocument(
-            @RequestBody DocumentCreateRequest req,
-            @AuthenticationPrincipal UserDetailsImpl userDetails // 이거 추가!
-    ) {
-        // userDetails.getId(), userDetails.getRoleName() 넘겨서 누가 만들었는지 기록!
-        Document created = documentService.createTextDocument(req, userDetails.getId(), userDetails.getRoleName());
-        return ResponseEntity.ok(created);
-    }
-
-    /**
      * 파일 업로드 후 문서 생성
      */
     @PostMapping("/upload")
