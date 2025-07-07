@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -49,7 +50,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
      * @return 권한 정보가 포함된 사용자 정보
      */
     @Query("SELECT u FROM User u LEFT JOIN FETCH u.role WHERE u.username = :username AND u.isActive = true")
-    Optional<User> findActiveUserWithRoles(@Param("username") String username);
+    Optional<User> findActiveUserWithRole(@Param("username") String username);
     
     /**
      * 이메일 인증이 완료된 사용자 조회
@@ -57,4 +58,21 @@ public interface UserRepository extends JpaRepository<User, Long> {
      * @return 사용자 정보 Optional
      */
     Optional<User> findByEmailAndIsEmailVerifiedTrue(String email);
+
+    @Query("SELECT u FROM User u LEFT JOIN FETCH u.role WHERE u.isActive = true")
+    List<User> findAllWithRole();
+
+    /**
+     * 특정 사용자 ID로 사용자와 Role 정보를 즉시 로딩
+     * 지연 로딩 문제를 해결하기 위한 메서드
+     */
+    @Query("SELECT u FROM User u LEFT JOIN FETCH u.role WHERE u.id = :userId AND u.isActive = true")
+    Optional<User> findByIdWithRole(@Param("userId") Long userId);
+
+    /**
+     * 사용자명으로 사용자와 Role 정보를 즉시 로딩
+     * 지연 로딩 문제를 해결하기 위한 메서드
+     */
+    @Query("SELECT u FROM User u LEFT JOIN FETCH u.role WHERE u.username = :username AND u.isActive = true")
+    Optional<User> findByUsernameWithRole(@Param("username") String username);
 }
