@@ -134,4 +134,5 @@ public class GlobalExceptionHandler {
     public ResponseEntity<String> handlePermissionDenied(PermissionDeniedException ex) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ex.getMessage());
     }
+
 }
