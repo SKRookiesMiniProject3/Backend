@@ -11,6 +11,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import java.util.Collection;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Collections;
 
 /**
  * Spring Security UserDetails 구현체
@@ -30,25 +31,17 @@ public class UserDetailsImpl implements UserDetails {
 
     /**
      * User 엔티티로부터 UserDetails 객체를 생성하는 팩토리 메서드
-     * 1:1 관계로 변경된 Role 시스템에 맞게 수정
+     * 사용자의 실제 역할만 권한으로 부여
      *
      * @param user User 엔티티
      * @return UserDetailsImpl 객체
      */
     public static UserDetailsImpl build(User user) {
-        List<GrantedAuthority> authorities = new ArrayList<>();
-
-        // 현재 사용자의 직급을 Spring Security 권한으로 변환
+        // 현재 사용자의 실제 직급만 권한으로 부여
         String currentRoleName = user.getCurrentRoleName().name();
-        authorities.add(new SimpleGrantedAuthority(currentRoleName));
-
-        // 계층적 권한 부여: 현재 직급 이하의 모든 직급 권한을 포함
-        // 예: MANAGER는 STAFF, SENIOR_STAFF, ASSISTANT_MANAGER 권한도 함께 가짐
-        for (com.rookies.log2doc.entity.Role.RoleName roleName : com.rookies.log2doc.entity.Role.RoleName.values()) {
-            if (roleName.getLevel() <= user.getCurrentLevel()) {
-                authorities.add(new SimpleGrantedAuthority(roleName.name()));
-            }
-        }
+        List<GrantedAuthority> authorities = Collections.singletonList(
+                new SimpleGrantedAuthority(currentRoleName)
+        );
 
         return new UserDetailsImpl(
                 user.getId(),
@@ -63,13 +56,18 @@ public class UserDetailsImpl implements UserDetails {
 
     /**
      * 특정 직급 이상의 권한을 가지고 있는지 확인
+     * 계층적 권한 체크는 비즈니스 로직에서 처리
      *
      * @param roleName 확인할 직급
      * @return 해당 직급 이상의 권한을 가지고 있으면 true
      */
     public boolean hasRole(String roleName) {
-        return authorities.stream()
-                .anyMatch(authority -> authority.getAuthority().equals(roleName));
+        try {
+            Role.RoleName targetRole = Role.RoleName.valueOf(roleName);
+            return currentRoleName.isAtLeast(targetRole);
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
     }
 
     /**
@@ -78,7 +76,7 @@ public class UserDetailsImpl implements UserDetails {
      * @return 과장 이상의 권한을 가지고 있으면 true
      */
     public boolean isManager() {
-        return hasRole(com.rookies.log2doc.entity.Role.RoleName.MANAGER.name());
+        return currentRoleName.isAtLeast(Role.RoleName.MANAGER);
     }
 
     /**
@@ -87,7 +85,7 @@ public class UserDetailsImpl implements UserDetails {
      * @return 이사 이상의 권한을 가지고 있으면 true
      */
     public boolean isExecutive() {
-        return hasRole(com.rookies.log2doc.entity.Role.RoleName.VICE_PRESIDENT.name());
+        return currentRoleName.isAtLeast(Role.RoleName.VICE_PRESIDENT);
     }
 
     /**
@@ -96,7 +94,7 @@ public class UserDetailsImpl implements UserDetails {
      * @return CEO 권한을 가지고 있으면 true
      */
     public boolean isCEO() {
-        return hasRole(com.rookies.log2doc.entity.Role.RoleName.CEO.name());
+        return currentRoleName == Role.RoleName.CEO;
     }
 
     @Override
