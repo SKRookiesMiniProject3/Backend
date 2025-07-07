@@ -1,6 +1,7 @@
 package com.rookies.log2doc.exception;
 
 import com.rookies.log2doc.dto.response.MessageResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -10,9 +11,13 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.client.RestTemplate;
 
+import java.time.Instant;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 전역 예외 처리 핸들러
@@ -20,7 +25,28 @@ import java.util.Map;
 @RestControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
-    
+
+    private void sendLogToFlask(HttpServletRequest request, String errorMessage, String accessResult, String actionType) {
+        Map<String, Object> logData = new HashMap<>();
+        logData.put("timestamp", Instant.now().toString());
+        logData.put("user_id", "exampleUser"); // TODO: SecurityContextHolder 등에서 실제 ID 가져오기
+        logData.put("session_id", request.getSession().getId());
+        logData.put("request_method", request.getMethod());
+        logData.put("request_url", request.getRequestURI());
+        logData.put("request_headers", Collections.list(request.getHeaderNames()).stream()
+                .collect(Collectors.toMap(h -> h, request::getHeader)));
+        logData.put("user_role", "EMPLOYEE"); // TODO: 실제 역할 가져오기
+        logData.put("document_id", null);
+        logData.put("document_classification", null);
+        logData.put("document_owner", null);
+        logData.put("action_type", actionType);
+        logData.put("access_result", accessResult);
+        logData.put("error_message", errorMessage);
+
+        RestTemplate restTemplate = new RestTemplate();
+        restTemplate.postForEntity("http://flask-server/logs", logData, String.class);
+    }
+
     /**
      * 토큰 갱신 예외 처리
      */
@@ -30,17 +56,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(new MessageResponse(e.getMessage(), false));
     }
-    
-    /**
-     * 인증 실패 예외 처리
-     */
-    @ExceptionHandler(BadCredentialsException.class)
-    public ResponseEntity<MessageResponse> handleBadCredentialsException(BadCredentialsException e) {
-        log.error("인증 실패: {}", e.getMessage());
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(new MessageResponse("사용자명 또는 비밀번호가 올바르지 않습니다.", false));
-    }
-    
+
     /**
      * 사용자 찾기 실패 예외 처리
      */
@@ -50,7 +66,23 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(new MessageResponse("사용자를 찾을 수 없습니다.", false));
     }
-    
+
+    /**
+     * 인증 실패 예외 처리 (BadCredentialsException)
+     */
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<MessageResponse> handleBadCredentialsException(
+            BadCredentialsException e, HttpServletRequest request) {
+
+        log.error("인증 실패: {}", e.getMessage());
+
+        // ✅ 공통 전송 메서드만 호출!
+        sendLogToFlask(request, e.getMessage(), "PERMISSION_DENIED", "LOGIN");
+
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(new MessageResponse("사용자명 또는 비밀번호가 올바르지 않습니다.", false));
+    }
+
     /**
      * 유효성 검증 실패 예외 처리
      */
@@ -94,5 +126,4 @@ public class GlobalExceptionHandler {
     public ResponseEntity<String> handlePermissionDenied(PermissionDeniedException ex) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ex.getMessage());
     }
-
 }
