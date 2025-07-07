@@ -5,6 +5,8 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "documents")
@@ -38,10 +40,19 @@ public class Document {
     private String mimeType;   // MIME 타입
 
     /**
-     * 문서 카테고리 (필터링용)
+     * 카테고리 FK 필드 제거됨
+     * @OneToMany 연관관계로 대체
      */
-    @Column(nullable = true)
-    private String category;
+    @OneToMany(mappedBy = "document", cascade = CascadeType.ALL, orphanRemoval = true)
+    @com.fasterxml.jackson.annotation.JsonManagedReference // 🔑 JSON 직렬화의 시작점!
+    private List<DocumentCategory> documentCategories = new ArrayList<>();
+
+    /**
+     * 문서 status 필드 추가
+     * */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private DocumentStatus status;
 
     /**
      * 작성자 ID 또는 이름
@@ -50,8 +61,8 @@ public class Document {
     private String author;
 
     /**
-    * 작성자 권한 저장 필드
-    */
+     * 작성자 권한 저장 필드
+     */
     @Column(name = "created_role")
     private String createdRole;
 
@@ -59,7 +70,7 @@ public class Document {
      * 소프트 삭제 여부
      */
     @Column(nullable = false)
-    private boolean isDeleted = false;
+    private Boolean isDeleted;
 
     /**
      * 생성/수정/삭제 일시
@@ -87,18 +98,24 @@ public class Document {
     private Role deleteRole;
 
     /**
-     * 생성일 기본값 처리
-     */
-    @PrePersist
-    public void prePersist() {
-        this.createdAt = LocalDateTime.now();
-    }
-
-    /**
      * 수정일 자동 갱신
      */
     @PreUpdate
     public void preUpdate() {
         this.updatedAt = LocalDateTime.now();
     }
+
+    @PrePersist
+    public void prePersist() {
+        if (this.isDeleted == null) {
+            this.isDeleted = false;
+        }
+        if (this.status == null) {
+            this.status = DocumentStatus.PROCESSING;
+        }
+        if (this.createdAt == null) {
+            this.createdAt = LocalDateTime.now();
+        }
+    }
+
 }

@@ -18,8 +18,8 @@ public class DocumentCreateRequest {
     // 문서 본문 내용
     private String content;
 
-    // 문서 카테고리
-    private String category;
+    // FK: 카테고리 타입 ID
+    private Long categoryTypeId;
 
     // 읽기 권한 Role ID
     private Long readRoleId;

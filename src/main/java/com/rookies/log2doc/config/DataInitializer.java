@@ -1,7 +1,9 @@
 package com.rookies.log2doc.config;
 
+import com.rookies.log2doc.entity.CategoryType;
 import com.rookies.log2doc.entity.Role;
 import com.rookies.log2doc.entity.User;
+import com.rookies.log2doc.repository.CategoryTypeRepository;
 import com.rookies.log2doc.repository.RoleRepository;
 import com.rookies.log2doc.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +35,7 @@ public class DataInitializer implements CommandLineRunner {
     private final RoleRepository roleRepository;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final CategoryTypeRepository categoryTypeRepository;
 
     /**
      * 애플리케이션 시작 시 실행되는 메서드
@@ -52,6 +55,9 @@ public class DataInitializer implements CommandLineRunner {
 
             // 3. 테스트 사용자 생성
             initializeTestUsers();
+
+            // 4. 테스트 카테고리 DB 생성
+            initializeCategoryTypes();
 
             log.info("데이터베이스 초기화 완료!");
         } catch (Exception e) {
@@ -184,4 +190,35 @@ public class DataInitializer implements CommandLineRunner {
             log.debug("테스트 사용자 이미 존재: {}", username);
         }
     }
+
+    private void initializeCategoryTypes() {
+        log.info("카테고리 타입 초기화 중...");
+
+        String[][] defaultCategories = {
+                {"Error Report", "오류 보고 카테고리"},
+                {"Proposal", "제안 카테고리"},
+                {"Improvement", "개선 요청 카테고리"}
+        };
+
+        for (String[] cat : defaultCategories) {
+            String name = cat[0];
+            String desc = cat[1];
+
+            if (!categoryTypeRepository.existsByName(name)) {
+                CategoryType type = CategoryType.builder()
+                        .name(name)
+                        .description(desc)
+                        .isDeleted(false)
+                        .build();
+
+                categoryTypeRepository.save(type);
+                log.info("카테고리 타입 생성: {} ({})", name, desc);
+            } else {
+                log.debug("카테고리 타입 이미 존재: {}", name);
+            }
+        }
+
+        log.info("카테고리 타입 초기화 완료");
+    }
+
 }

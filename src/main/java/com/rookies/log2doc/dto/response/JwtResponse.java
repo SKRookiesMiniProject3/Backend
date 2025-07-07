@@ -5,8 +5,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
-
 /**
  * JWT 응답 DTO
  */
@@ -17,21 +15,22 @@ import java.util.List;
 public class JwtResponse {
 
     private String token;
+    @Builder.Default
     private String type = "Bearer";
     private String refreshToken;
     private Long id;
     private String username;
     private String email;
-    private List<String> roles;
+    private String role;  // List<String> roles에서 String role로 변경
     private long expiresIn;
 
-    public JwtResponse(String accessToken, String refreshToken, Long id, String username, String email, List<String> roles, long expiresIn) {
+    public JwtResponse(String accessToken, String refreshToken, Long id, String username, String email, String role, long expiresIn) {
         this.token = accessToken;
         this.refreshToken = refreshToken;
         this.id = id;
         this.username = username;
         this.email = email;
-        this.roles = roles;
+        this.role = role;
         this.expiresIn = expiresIn;
     }
 }
