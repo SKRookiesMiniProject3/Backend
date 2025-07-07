@@ -46,16 +46,21 @@ public class DocumentController {
     @PostMapping("/upload")
     public ResponseEntity<Document> uploadDocument(
             @RequestParam MultipartFile file,
-            @RequestParam String category,
+            @RequestParam Long categoryTypeId,  // ✅ categoryTypeId로 변경
             @RequestParam Long readRoleId,
             @RequestParam Long writeRoleId,
             @RequestParam Long deleteRoleId,
             @AuthenticationPrincipal UserDetailsImpl userDetails
     ) throws IOException {
         Document saved = documentService.uploadDocument(
-                file, category, readRoleId, writeRoleId, deleteRoleId,
-                userDetails.getId(), userDetails.getRoleName()
-        ); // 작성자 정보 서비스로 넘김
+                file,
+                categoryTypeId, // ✅ 문자열 X
+                readRoleId,
+                writeRoleId,
+                deleteRoleId,
+                userDetails.getId(),
+                userDetails.getRoleName()
+        );
 
         return ResponseEntity.ok(saved);
     }
@@ -66,13 +71,13 @@ public class DocumentController {
      */
     @GetMapping
     public ResponseEntity<List<Document>> getDocuments(
-            @RequestParam(required = false) String category,
+            @RequestParam(required = false) Long categoryTypeId, // String → Long 바꿈
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @AuthenticationPrincipal UserDetailsImpl userDetails
     ) {
         List<Document> result = documentService.getDocumentList(
-                category,
+                categoryTypeId,
                 userDetails.getRoleName(),
                 startDate,
                 endDate

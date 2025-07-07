@@ -5,6 +5,8 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "documents")
@@ -38,10 +40,11 @@ public class Document {
     private String mimeType;   // MIME 타입
 
     /**
-     * 문서 카테고리 (필터링용)
+     * 카테고리 FK 필드 제거됨
+     * @OneToMany 연관관계로 대체
      */
-    @Column(nullable = true)
-    private String category;
+    @OneToMany(mappedBy = "document", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<DocumentCategory> documentCategories = new ArrayList<>();
 
     /**
      * 작성자 ID 또는 이름
@@ -50,8 +53,8 @@ public class Document {
     private String author;
 
     /**
-    * 작성자 권한 저장 필드
-    */
+     * 작성자 권한 저장 필드
+     */
     @Column(name = "created_role")
     private String createdRole;
 
