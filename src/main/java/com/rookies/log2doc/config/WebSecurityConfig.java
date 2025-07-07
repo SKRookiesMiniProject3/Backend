@@ -1,5 +1,6 @@
 package com.rookies.log2doc.config;
 
+import com.rookies.log2doc.exception.CustomAccessDeniedHandler;
 import com.rookies.log2doc.security.jwt.AuthEntryPointJwt;
 import com.rookies.log2doc.security.jwt.AuthTokenFilter;
 import com.rookies.log2doc.security.services.UserDetailsServiceImpl;
@@ -38,6 +39,7 @@ public class WebSecurityConfig {
     private final UserDetailsServiceImpl userDetailsService;
     private final AuthEntryPointJwt unauthorizedHandler;
     private final AuthTokenFilter authTokenFilter;
+    private final CustomAccessDeniedHandler customAccessDeniedHandler;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -61,7 +63,11 @@ public class WebSecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http.cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
-                .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler))
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint(unauthorizedHandler)
+                        .accessDeniedHandler(customAccessDeniedHandler)
+                )
+
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .headers(headers -> headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::deny))
                 .authorizeHttpRequests(auth ->

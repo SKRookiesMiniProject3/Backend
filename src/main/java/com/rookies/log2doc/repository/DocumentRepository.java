@@ -71,4 +71,18 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
             """)
     Optional<Document> findByFilePathWithRoles(@Param("filePath") String filePath);
 
+    /**
+     * 파일 해시(filePath)로 단일 문서 조회 + 권한 Role + 카테고리 Fetch Join
+     * - 해시 기반 단일 문서 조회 + DTO 변환에 필요
+     */
+    @Query("""
+                SELECT DISTINCT d FROM Document d
+                JOIN FETCH d.readRole
+                JOIN FETCH d.documentCategories dc
+                JOIN FETCH dc.categoryType
+                WHERE d.filePath = :filePath
+            """)
+    Optional<Document> findByFilePathWithRolesAndCategories(@Param("filePath") String filePath);
+
+
 }

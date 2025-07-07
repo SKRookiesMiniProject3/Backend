@@ -113,6 +113,32 @@ public class DocumentController {
     }
 
     /**
+     * 단일 문서 조회 (해시 경로 기준)
+     * - 권한 체크 포함 + DTO 변환 + 로그 전송
+     */
+    @GetMapping("/hash/{hash}")
+    public ResponseEntity<DocumentResponseDTO> getDocumentByHash(
+            @PathVariable String hash,
+            @AuthenticationPrincipal UserDetailsImpl userDetails,
+            HttpServletRequest request
+    ) {
+        DocumentResponseDTO doc = documentService.getDocumentByHash(hash, userDetails.getRoleId());
+
+        Map<String, Object> logData = logBuilder.buildBaseLog(
+                request,
+                SecurityContextHolder.getContext().getAuthentication()
+        );
+        logData.put("access_result", "SUCCESS");
+        logData.put("response_status", 200);
+        logData.put("action_type", "READ");
+        logData.put("document_id", doc.getId());
+        logData.put("document_owner", doc.getOwner());
+        logSender.sendLog(logData);
+
+        return ResponseEntity.ok(doc);
+    }
+
+    /**
      * 단일 문서 조회
      */
     @GetMapping("/{id}")
@@ -167,36 +193,6 @@ public class DocumentController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
                         "attachment; filename=\"" + fileResource.getFilename() + "\"")
-                .body(fileResource);
-    }
-
-    /**
-     * 파일 다운로드 (해시 경로 기준)
-     */
-    @GetMapping("/files/{hash}")
-    public ResponseEntity<Resource> downloadByHash(
-            @PathVariable String hash,
-            @AuthenticationPrincipal UserDetailsImpl userDetails,
-            HttpServletRequest request
-    ) throws MalformedURLException {
-        Resource fileResource = documentService.loadFileAsResourceByHash(hash, userDetails.getRoleId());
-        Document doc = documentService.getDocumentByHash(hash); // ✅ 이건 Entity 맞음 (해시 기반 조회는 DTO 변환 안 함)
-
-        // ✅ 성공 로그 전송
-        Map<String, Object> logData = logBuilder.buildBaseLog(
-                request,
-                SecurityContextHolder.getContext().getAuthentication()
-        );
-        logData.put("access_result", "SUCCESS");
-        logData.put("response_status", 200);
-        logData.put("action_type", "DOWNLOAD");
-        logData.put("document_id", doc.getId());
-        logData.put("document_owner", doc.getAuthor());
-        logSender.sendLog(logData);
-
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION,
-                        "attachment; filename=\"" + doc.getFileName() + "\"")
                 .body(fileResource);
     }
 

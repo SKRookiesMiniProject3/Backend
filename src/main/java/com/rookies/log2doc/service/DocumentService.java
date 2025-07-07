@@ -198,9 +198,14 @@ public class DocumentService {
         return new UrlResource(path.toUri());
     }
 
-    public Document getDocumentByHash(String hash) {
-        return documentRepository.findByFilePath(hash)
-                .orElseThrow(() -> new RuntimeException("문서 없음"));
+    @Transactional(readOnly = true)
+    public DocumentResponseDTO getDocumentByHash(String hash, int userRoleId) {
+        Document doc = documentRepository.findByFilePathWithRolesAndCategories(hash)
+                .orElseThrow(() -> new RuntimeException("문서를 찾을 수 없습니다."));
+
+        checkReadPermission(doc, userRoleId);
+
+        return mapToDTO(doc);
     }
 
     /**
