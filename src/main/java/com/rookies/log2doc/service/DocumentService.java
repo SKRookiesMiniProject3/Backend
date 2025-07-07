@@ -1,7 +1,9 @@
 package com.rookies.log2doc.service;
 
 import com.rookies.log2doc.dto.request.DocumentCreateRequest;
-import com.rookies.log2doc.dto.request.DocumentUpdateRequest;
+import com.rookies.log2doc.dto.response.CategoryTypeDTO;
+import com.rookies.log2doc.dto.response.DocumentResponseDTO;
+import com.rookies.log2doc.dto.response.RoleDTO;
 import com.rookies.log2doc.entity.*;
 import com.rookies.log2doc.exception.PermissionDeniedException;
 import com.rookies.log2doc.repository.*;
@@ -22,7 +24,6 @@ import java.nio.file.StandardCopyOption;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -42,20 +43,14 @@ public class DocumentService {
     @Transactional
     public Document createTextDocument(DocumentCreateRequest req, Long userId, String userRoleName) {
         Role readRole = getRoleById(req.getReadRoleId(), "읽기");
-        Role writeRole = getRoleById(req.getWriteRoleId(), "쓰기");
-        Role deleteRole = getRoleById(req.getDeleteRoleId(), "삭제");
 
         Document doc = new Document();
         doc.setTitle(req.getTitle());
         doc.setContent(req.getContent());
         doc.setReadRole(readRole);
-        doc.setWriteRole(writeRole);
-        doc.setDeleteRole(deleteRole);
         doc.setCreatedAt(LocalDateTime.now());
         doc.setAuthor(String.valueOf(userId));
-        doc.setCreatedRole(userRoleName);
-        doc.setClassification(req.getClassification());  // 등급 저장
-        doc.setOwner(userId.toString());                 // 작성자 저장
+        doc.setCreatedRole(userRoleName);         // 작성자 저장
 
         // ✅ FK로 CategoryType 가져오기
         CategoryType categoryType = categoryTypeRepository.findById(req.getCategoryTypeId())
@@ -80,13 +75,11 @@ public class DocumentService {
     public Document uploadDocument(
             MultipartFile file,
             Long categoryTypeId,
-            Long readRoleId, Long writeRoleId, Long deleteRoleId,
+            Long readRoleId,
             Long userId, String userRoleName
     ) throws IOException {
 
         Role readRole = getRoleById(readRoleId, "읽기");
-        Role writeRole = getRoleById(writeRoleId, "쓰기");
-        Role deleteRole = getRoleById(deleteRoleId, "삭제");
 
         String originalFileName = file.getOriginalFilename();
         String extension = getFileExtension(originalFileName);
@@ -105,8 +98,6 @@ public class DocumentService {
         doc.setFileSize(file.getSize());
         doc.setCreatedAt(LocalDateTime.now());
         doc.setReadRole(readRole);
-        doc.setWriteRole(writeRole);
-        doc.setDeleteRole(deleteRole);
         doc.setAuthor(String.valueOf(userId));
         doc.setCreatedRole(userRoleName);
 
@@ -142,16 +133,33 @@ public class DocumentService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
+    public List<DocumentResponseDTO> getDocumentListAsDTO(Long categoryTypeId, String userRoleName, LocalDate startDate, LocalDate endDate) {
+        List<Document> docs = (categoryTypeId != null)
+                ? documentRepository.findByCategoryTypeIdAndIsDeletedFalseWithRoles(categoryTypeId)
+                : documentRepository.findAllWithRoles();
+
+        Role.RoleName userRole = Role.RoleName.valueOf(userRoleName);
+        int userLevel = userRole.getLevel();
+
+        return docs.stream()
+                .filter(doc -> userLevel >= doc.getReadRole().getName().getLevel())
+                .filter(doc -> isInDateRange(doc.getCreatedAt(), startDate, endDate))
+                .map(this::mapToDTO)  // 트랜잭션 범위 안에서 DTO 변환
+                .collect(Collectors.toList());
+    }
+
     /**
      * 단일 문서 조회 (읽기 권한)
      */
     @Transactional(readOnly = true)
-    public Document getDocument(Long id, int userRoleId) {
-        Document doc = documentRepository.findByIdWithRoles(id)
+    public DocumentResponseDTO getDocument(Long id, int userRoleId) {
+        Document doc = documentRepository.findByIdWithRolesAndCategories(id)
                 .orElseThrow(() -> new RuntimeException("문서를 찾을 수 없습니다."));
 
         checkReadPermission(doc, userRoleId);
-        return doc;
+
+        return mapToDTO(doc); // ⭐️ 이게 핵심!
     }
 
     /**
@@ -164,7 +172,14 @@ public class DocumentService {
         checkReadPermission(doc, userRoleId);
 
         String extension = getFileExtension(doc.getFileName());
-        Path filePath = Paths.get("uploads").resolve(doc.getFilePath() + extension);
+
+        Path uploadDir = Paths.get(System.getProperty("user.dir"), "uploads");
+        Path filePath = uploadDir.resolve(doc.getFilePath() + extension);
+
+        if (!Files.exists(filePath)) {
+            throw new RuntimeException("파일이 존재하지 않습니다: " + filePath.toAbsolutePath());
+        }
+
         return new UrlResource(filePath.toUri());
     }
 
@@ -189,67 +204,6 @@ public class DocumentService {
     }
 
     /**
-     * 문서 전체 수정 (쓰기 권한)
-     */
-    @Transactional
-    public Document updateDocument(Long id, DocumentUpdateRequest req, String userRoleName) {
-        Document doc = documentRepository.findByIdWithRoles(id)
-                .orElseThrow(() -> new RuntimeException("문서 없음"));
-        checkWritePermission(doc, userRoleName);
-
-        doc.setTitle(req.getTitle());
-        doc.setContent(req.getContent());
-        // ✅ 카테고리는 DocumentCategory로 따로 관리하므로 여기선 변경 X
-
-        return documentRepository.save(doc);
-    }
-
-    /**
-     * 문서 일부 수정 (쓰기 권한)
-     */
-    @Transactional
-    public Document patchDocument(Long id, Map<String, Object> updates, String userRoleName) {
-        Document doc = documentRepository.findByIdWithRoles(id)
-                .orElseThrow(() -> new RuntimeException("문서 없음"));
-        checkWritePermission(doc, userRoleName);
-
-        if (updates.containsKey("title")) {
-            doc.setTitle((String) updates.get("title"));
-        }
-        if (updates.containsKey("content")) {
-            doc.setContent((String) updates.get("content"));
-        }
-        // ✅ categoryType 변경이 필요하다면 별도 로직에서 처리
-        return documentRepository.save(doc);
-    }
-
-    /**
-     * 문서 소프트 삭제
-     */
-    @Transactional
-    public void softDeleteDocument(Long id, String userRoleName) {
-        Document doc = documentRepository.findByIdWithRoles(id)
-                .orElseThrow(() -> new RuntimeException("문서를 찾을 수 없습니다."));
-        checkDeletePermission(doc, userRoleName);
-
-        doc.setIsDeleted(true);
-        doc.setDeletedAt(LocalDateTime.now());
-        documentRepository.save(doc);
-    }
-
-    /**
-     * 문서 하드 삭제
-     */
-    @Transactional
-    public void hardDeleteDocument(Long id, String userRoleName) {
-        Document doc = documentRepository.findByIdWithRolesIgnoreIsDeleted(id)
-                .orElseThrow(() -> new RuntimeException("문서를 찾을 수 없습니다."));
-        checkDeletePermission(doc, userRoleName);
-
-        documentRepository.delete(doc);
-    }
-
-    /**
      * 공통 권한 로직
      */
     private Role getRoleById(Long roleId, String roleType) {
@@ -258,18 +212,10 @@ public class DocumentService {
     }
 
     private void checkReadPermission(Document doc, int userRoleId) {
-        int minRoleId = doc.getClassification().getMinRoleId();
-        if (userRoleId < minRoleId) {
+        int requiredLevel = doc.getReadRole().getName().getLevel();
+        if (userRoleId < requiredLevel) {
             throw new PermissionDeniedException("권한이 부족합니다.");
         }
-    }
-
-    private void checkWritePermission(Document doc, String userRoleName) {
-        checkPermission(doc.getWriteRole(), userRoleName, "쓰기");
-    }
-
-    private void checkDeletePermission(Document doc, String userRoleName) {
-        checkPermission(doc.getDeleteRole(), userRoleName, "삭제");
     }
 
     private void checkPermission(Role requiredRole, String userRoleName, String action) {
@@ -294,4 +240,42 @@ public class DocumentService {
         if (endDate != null && createdAt.toLocalDate().isAfter(endDate)) return false;
         return true;
     }
+
+    @Transactional(readOnly = true)
+    public DocumentResponseDTO mapToDTO(Document doc) {
+        // 카테고리 DTO 변환
+        List<CategoryTypeDTO> categories = doc.getDocumentCategories().stream()
+                .map(dc -> {
+                    CategoryType ct = dc.getCategoryType();
+                    return CategoryTypeDTO.builder()
+                            .id(ct.getId())
+                            .name(ct.getName())
+                            .description(ct.getDescription())
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        // Role DTO 변환
+        RoleDTO readRole = RoleDTO.builder()
+                .id(doc.getReadRole().getId())
+                .name(doc.getReadRole().getName().name())
+                .description(doc.getReadRole().getDescription())
+                .level(doc.getReadRole().getName().getLevel())
+                .build();
+
+        return DocumentResponseDTO.builder()
+                .id(doc.getId())
+                .fileName(doc.getFileName())
+                .filePath(doc.getFilePath())
+                .fileSize(doc.getFileSize())
+                .mimeType(doc.getMimeType())
+                .owner(doc.getAuthor())
+                .createdRole(doc.getCreatedRole())
+                .createdAt(doc.getCreatedAt())
+                .status(doc.getStatus().name())
+                .readRole(readRole)
+                .categories(categories)
+                .build();
+    }
+
 }

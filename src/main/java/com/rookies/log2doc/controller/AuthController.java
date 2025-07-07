@@ -38,18 +38,19 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class AuthController {
-    
+
     private final AuthenticationManager authenticationManager;
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtils jwtUtils;
     private final RefreshTokenService refreshTokenService;
-    
+
     /**
      * 사용자 로그인
+     *
      * @param loginRequest 로그인 요청 정보
-     * @param request HTTP 요청 객체
+     * @param request      HTTP 요청 객체
      * @return JWT 토큰 정보
      */
     @PostMapping("/signin")
@@ -60,31 +61,31 @@ public class AuthController {
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword())
             );
-            
+
             SecurityContextHolder.getContext().setAuthentication(authentication);
-            
+
             // JWT 토큰 생성
             String jwt = jwtUtils.generateJwtToken(authentication);
-            
+
             UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
             List<String> roles = userDetails.getAuthorities().stream()
                     .map(item -> item.getAuthority())
                     .collect(Collectors.toList());
-            
+
             // 기기 정보 및 IP 주소 추출
             String deviceInfo = getDeviceInfo(request);
             String ipAddress = getClientIpAddress(request);
-            
+
             // 리프레시 토큰 생성
             RefreshToken refreshToken = refreshTokenService.createRefreshToken(
                     userDetails.getId(), deviceInfo, ipAddress
             );
-            
+
             // JWT 토큰 만료 시간 계산
             long expiresIn = jwtUtils.getExpirationTimeFromJwtToken(jwt);
-            
+
             log.info("사용자 로그인 성공: {}, IP: {}", loginRequest.getUsername(), ipAddress);
-            
+
             return ResponseEntity.ok(new JwtResponse(
                     jwt,
                     refreshToken.getToken(),
@@ -94,7 +95,7 @@ public class AuthController {
                     roles,
                     expiresIn
             ));
-            
+
         } catch (Exception e) {
             log.error("로그인 실패: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -104,6 +105,7 @@ public class AuthController {
 
     /**
      * 토큰 갱신
+     *
      * @param request 토큰 갱신 요청
      * @return 새로운 JWT 토큰
      */
@@ -111,16 +113,16 @@ public class AuthController {
     public ResponseEntity<?> refreshToken(@Valid @RequestBody TokenRefreshRequest request) {
         try {
             String requestRefreshToken = request.getRefreshToken();
-            
+
             return refreshTokenService.findByToken(requestRefreshToken)
                     .map(refreshTokenService::verifyExpiration)
                     .map(RefreshToken::getUser)
                     .map(user -> {
                         String token = jwtUtils.generateTokenFromUsername(user.getUsername());
                         long expiresIn = jwtUtils.getExpirationTimeFromJwtToken(token);
-                        
+
                         log.info("토큰 갱신 성공: {}", user.getUsername());
-                        
+
                         return ResponseEntity.ok(JwtResponse.builder()
                                 .token(token)
                                 .refreshToken(requestRefreshToken)
@@ -128,16 +130,17 @@ public class AuthController {
                                 .build());
                     })
                     .orElseThrow(() -> new TokenRefreshException(requestRefreshToken, "리프레시 토큰이 데이터베이스에 없습니다."));
-            
+
         } catch (TokenRefreshException e) {
             log.error("토큰 갱신 실패: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(new MessageResponse(e.getMessage(), false));
         }
     }
-    
+
     /**
      * 로그아웃
+     *
      * @param request 토큰 갱신 요청 (리프레시 토큰 포함)
      * @return 로그아웃 결과 메시지
      */
@@ -145,25 +148,26 @@ public class AuthController {
     public ResponseEntity<?> logoutUser(@Valid @RequestBody TokenRefreshRequest request) {
         try {
             String refreshToken = request.getRefreshToken();
-            
+
             RefreshToken token = refreshTokenService.findByToken(refreshToken)
                     .orElseThrow(() -> new TokenRefreshException(refreshToken, "리프레시 토큰을 찾을 수 없습니다."));
-            
+
             refreshTokenService.deleteRefreshToken(token);
-            
+
             log.info("사용자 로그아웃: {}", token.getUser().getUsername());
-            
+
             return ResponseEntity.ok(new MessageResponse("로그아웃되었습니다."));
-            
+
         } catch (TokenRefreshException e) {
             log.error("로그아웃 실패: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new MessageResponse(e.getMessage(), false));
         }
     }
-    
+
     /**
      * 모든 기기에서 로그아웃
+     *
      * @return 로그아웃 결과 메시지
      */
     @PostMapping("/signout-all")
@@ -174,26 +178,27 @@ public class AuthController {
                 String username = authentication.getName();
                 User user = userRepository.findByUsername(username)
                         .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
-                
+
                 refreshTokenService.deleteByUser(user);
-                
+
                 log.info("모든 기기에서 로그아웃: {}", username);
-                
+
                 return ResponseEntity.ok(new MessageResponse("모든 기기에서 로그아웃되었습니다."));
             }
-            
+
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(new MessageResponse("인증되지 않은 사용자입니다.", false));
-            
+
         } catch (Exception e) {
             log.error("모든 기기 로그아웃 실패: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new MessageResponse("로그아웃에 실패했습니다: " + e.getMessage(), false));
         }
     }
-    
+
     /**
      * 기기 정보 추출
+     *
      * @param request HTTP 요청 객체
      * @return 기기 정보 문자열
      */
@@ -201,9 +206,10 @@ public class AuthController {
         String userAgent = request.getHeader("User-Agent");
         return userAgent != null ? userAgent.substring(0, Math.min(userAgent.length(), 500)) : "Unknown";
     }
-    
+
     /**
      * 클라이언트 IP 주소 추출
+     *
      * @param request HTTP 요청 객체
      * @return IP 주소
      */
@@ -212,12 +218,12 @@ public class AuthController {
         if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
             return xForwardedFor.split(",")[0].trim();
         }
-        
+
         String xRealIp = request.getHeader("X-Real-IP");
         if (xRealIp != null && !xRealIp.isEmpty()) {
             return xRealIp;
         }
-        
+
         return request.getRemoteAddr();
     }
 }
