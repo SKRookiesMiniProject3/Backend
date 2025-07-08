@@ -27,6 +27,8 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
+import static org.springframework.data.jpa.domain.AbstractPersistable_.id;
+
 @RestController
 @RequestMapping("/documents")
 public class DocumentController {
@@ -36,12 +38,6 @@ public class DocumentController {
 
     @Autowired
     private RoleRepository roleRepository;
-
-    @Autowired
-    private LogSender logSender;
-
-    @Autowired
-    private LogBuilder logBuilder;
 
     /**
      * 파일 업로드 후
@@ -85,44 +81,8 @@ public class DocumentController {
                 userDetails.getRoleName()
         );
 
-        // ✅ 로그 빌더로 기록
-        Map<String, Object> logData = logBuilder.buildBaseLog(
-                servletRequest,
-                SecurityContextHolder.getContext().getAuthentication()
-        );
-        logData.put("access_result", "SUCCESS");
-        logData.put("response_status", 200);
-        logData.put("action_type", "CREATE");
-        logData.put("document_id", saved.getId());
-        logData.put("document_owner", saved.getAuthor());
-
-        logSender.sendLog(logData);
-
-        return ResponseEntity.ok(saved);
-    }
-
-    /**
-     * 문서 리스트 조회
-     * - 카테고리 및 기간(startDate ~ endDate) 필터링 가능
-     */
-    @GetMapping
-    public ResponseEntity<List<DocumentResponseDTO>> getDocuments(
-            @RequestParam(required = false) Long categoryTypeId,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
-            @AuthenticationPrincipal UserDetailsImpl userDetails,
-            HttpServletRequest request
-    ) {
-        // Service에서 DTO까지 변환해서 반환
-        List<DocumentResponseDTO> result = documentService.getDocumentListAsDTO(
-                categoryTypeId,
-                userDetails.getRoleName(),
-                startDate,
-                endDate
-        );
-
-        return ResponseEntity.ok(result);
-    }
+        servletRequest.setAttribute("document_id", saved.getId());
+        servletRequest.setAttribute("document_owner", saved.getAuthor());
 
     /**
      * 단일 문서 조회 (해시 경로 기준)
@@ -133,49 +93,8 @@ public class DocumentController {
             @PathVariable String hash,
             @AuthenticationPrincipal UserDetailsImpl userDetails,
             HttpServletRequest request
-    ) {
-        DocumentResponseDTO doc = documentService.getDocumentByHash(hash, userDetails.getRoleId());
-
-        Map<String, Object> logData = logBuilder.buildBaseLog(
-                request,
-                SecurityContextHolder.getContext().getAuthentication()
-        );
-        logData.put("access_result", "SUCCESS");
-        logData.put("response_status", 200);
-        logData.put("action_type", "READ");
-        logData.put("document_id", doc.getId());
-        logData.put("document_owner", doc.getOwner());
-        logSender.sendLog(logData);
-
-        return ResponseEntity.ok(doc);
-    }
-
-    /**
-     * 단일 문서 조회
-     */
-    @GetMapping("/{id}")
-    public ResponseEntity<DocumentResponseDTO> getDocument(
-            @PathVariable Long id,
-            @AuthenticationPrincipal UserDetailsImpl userDetails,
-            HttpServletRequest request
-    ) {
-        request.setAttribute("document_id", id);
-
-        DocumentResponseDTO doc = documentService.getDocument(id, userDetails.getRoleId());
-
-        // ✅ logData 선언 & 초기화!!
-        Map<String, Object> logData = logBuilder.buildBaseLog(
-                request,
-                SecurityContextHolder.getContext().getAuthentication()
-        );
-
-        logData.put("action_type", "READ");
-        logData.put("document_id", doc.getId());
-        logData.put("document_owner", doc.getOwner());
-
-        logSender.sendLog(logData);
-
-        return ResponseEntity.ok(doc);
+    ){
+            DocumentResponseDTO doc = documentService.getDocumentByHash(hash, userDetails.getRoleId());
     }
 
     /**
@@ -189,23 +108,6 @@ public class DocumentController {
     ) throws MalformedURLException {
         Resource fileResource = documentService.loadFileAsResource(id, userDetails.getRoleId());
         DocumentResponseDTO doc = documentService.getDocument(id, userDetails.getRoleId()); // ✅ DTO로 변경!
-
-        // ✅ 성공 로그 전송
-        Map<String, Object> logData = logBuilder.buildBaseLog(
-                request,
-                SecurityContextHolder.getContext().getAuthentication()
-        );
-        logData.put("access_result", "SUCCESS");
-        logData.put("response_status", 200);
-        logData.put("action_type", "DOWNLOAD");
-        logData.put("document_id", doc.getId());
-        logData.put("document_owner", doc.getOwner());
-        logSender.sendLog(logData);
-
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION,
-                        "attachment; filename=\"" + fileResource.getFilename() + "\"")
-                .body(fileResource);
     }
 
     @GetMapping("/{id}/status")
@@ -223,5 +125,4 @@ public class DocumentController {
 
         return ResponseEntity.ok(result);
     }
-
 }

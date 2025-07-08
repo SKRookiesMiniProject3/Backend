@@ -15,4 +15,8 @@ public class ErrorReportDTO {
     private String errorCode;
     private Boolean resolved;
     private LocalDateTime createdAt;
+    private String description;
+    private String severity;
+    private String location;
+    private LocalDateTime resolvedAt;
 }
