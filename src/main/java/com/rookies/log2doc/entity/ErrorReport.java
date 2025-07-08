@@ -2,6 +2,8 @@ package com.rookies.log2doc.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 
 import java.time.LocalDateTime;
 
@@ -22,6 +24,7 @@ public class ErrorReport {
 
     private Boolean resolved = false;
 
+    @CreatedDate
     private LocalDateTime createdAt;
 
     @PrePersist

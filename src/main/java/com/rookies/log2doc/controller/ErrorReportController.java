@@ -4,9 +4,7 @@ import com.rookies.log2doc.dto.ErrorCountPerDayDTO;
 import com.rookies.log2doc.dto.ErrorReportDTO;
 import com.rookies.log2doc.service.ErrorReportService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -33,5 +31,10 @@ public class ErrorReportController {
     @GetMapping("/unresolved")
     public List<ErrorReportDTO> getUnresolvedErrors() {
         return errorReportService.getUnresolvedErrors();
+    }
+
+    @PostMapping
+    public ErrorReportDTO createError(@RequestBody ErrorReportDTO dto) {
+        return errorReportService.createError(dto);
     }
 }

@@ -37,6 +37,16 @@ public class ErrorReportService {
                 .collect(Collectors.toList());
     }
 
+    // flask에 보낼 메서드
+    public ErrorReportDTO createError(ErrorReportDTO dto) {
+        ErrorReport entity = ErrorReport.builder()
+                .message(dto.getMessage())
+                .resolved(dto.getResolved() != null ? dto.getResolved() : false)
+                .build();
+        ErrorReport saved = errorReportRepository.save(entity);
+        return toDTO(saved);
+    }
+
     private ErrorReportDTO toDTO(ErrorReport entity) {
         return ErrorReportDTO.builder()
                 .id(entity.getId())
