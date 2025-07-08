@@ -1,6 +1,5 @@
 package com.rookies.log2doc.service;
 
-import com.rookies.log2doc.dto.request.DocumentCreateRequest;
 import com.rookies.log2doc.dto.response.CategoryTypeDTO;
 import com.rookies.log2doc.dto.response.DocumentResponseDTO;
 import com.rookies.log2doc.dto.response.RoleDTO;
@@ -34,39 +33,8 @@ public class DocumentService {
 
     private final DocumentRepository documentRepository;
     private final RoleRepository roleRepository;
-    private final CategoryTypeRepository categoryTypeRepository;        // 추가
-    private final DocumentCategoryRepository documentCategoryRepository; // 추가
-
-    /**
-     * 텍스트 문서 생성
-     */
-    @Transactional
-    public Document createTextDocument(DocumentCreateRequest req, Long userId, String userRoleName) {
-        Role readRole = getRoleById(req.getReadRoleId(), "읽기");
-
-        Document doc = new Document();
-        doc.setTitle(req.getTitle());
-        doc.setContent(req.getContent());
-        doc.setReadRole(readRole);
-        doc.setCreatedAt(LocalDateTime.now());
-        doc.setAuthor(String.valueOf(userId));
-        doc.setCreatedRole(userRoleName);         // 작성자 저장
-
-        // ✅ FK로 CategoryType 가져오기
-        CategoryType categoryType = categoryTypeRepository.findById(req.getCategoryTypeId())
-                .orElseThrow(() -> new RuntimeException("카테고리 타입 없음"));
-
-        // ✅ Document 저장
-        documentRepository.save(doc);
-
-        // ✅ DocumentCategory 매핑
-        DocumentCategory mapping = new DocumentCategory();
-        mapping.setDocument(doc);
-        mapping.setCategoryType(categoryType);
-        documentCategoryRepository.save(mapping);
-
-        return doc;
-    }
+    private final CategoryTypeRepository categoryTypeRepository;
+    private final DocumentCategoryRepository documentCategoryRepository;
 
     /**
      * 파일 업로드 후 문서 생성
@@ -74,26 +42,39 @@ public class DocumentService {
     @Transactional
     public Document uploadDocument(
             MultipartFile file,
+            String title,
+            String content,
             Long categoryTypeId,
             Long readRoleId,
-            Long userId, String userRoleName
+            Long userId,
+            String userRoleName
     ) throws IOException {
 
+        // ✅ 읽기 권한 가져오기
         Role readRole = getRoleById(readRoleId, "읽기");
 
+        // ✅ 파일 정보 처리
         String originalFileName = file.getOriginalFilename();
         String extension = getFileExtension(originalFileName);
         String uuid = UUID.randomUUID().toString();
         String storedFileName = uuid + extension;
 
-        Path uploadDir = Paths.get("uploads");
+        // ✅ NFS 경로 설정 (로컬 경로 -> 배포할 때 바꿀 예정, properties 뺄 것)
+        String nfsPath = "../uploads/" + storedFileName;
+
+        // ✅ NFS 경로에 디렉토리 생성 & 파일 저장
+        Path uploadDir = Paths.get("/mnt/nfs/reports");
         Files.createDirectories(uploadDir);
         Path savePath = uploadDir.resolve(storedFileName);
         Files.copy(file.getInputStream(), savePath, StandardCopyOption.REPLACE_EXISTING);
 
+        // ✅ 문서 엔티티 생성
         Document doc = new Document();
+        doc.setTitle(title);
+        doc.setContent(content);
         doc.setFileName(originalFileName);
-        doc.setFilePath(uuid);
+        doc.setFilePath(uuid);           // 👉 URL 해시 (경로로 쓰면 안됨!)
+        doc.setFilePathNfs(nfsPath);     // ✅ 실제 물리 경로 통째로 기록!
         doc.setMimeType(file.getContentType());
         doc.setFileSize(file.getSize());
         doc.setCreatedAt(LocalDateTime.now());
@@ -101,12 +82,14 @@ public class DocumentService {
         doc.setAuthor(String.valueOf(userId));
         doc.setCreatedRole(userRoleName);
 
-        // ✅ FK 가져오기
+        // ✅ 카테고리 연관관계 FK 가져오기
         CategoryType categoryType = categoryTypeRepository.findById(categoryTypeId)
                 .orElseThrow(() -> new RuntimeException("카테고리 타입 없음"));
 
+        // ✅ 문서 저장
         documentRepository.save(doc);
 
+        // ✅ 카테고리 매핑 저장
         DocumentCategory mapping = new DocumentCategory();
         mapping.setDocument(doc);
         mapping.setCategoryType(categoryType);

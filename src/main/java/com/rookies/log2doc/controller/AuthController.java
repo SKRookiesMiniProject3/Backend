@@ -92,7 +92,7 @@ public class AuthController {
                     userDetails.getId(),
                     userDetails.getUsername(),
                     userDetails.getEmail(),
-                    roles,
+                    roles.toString(),
                     expiresIn
             ));
 

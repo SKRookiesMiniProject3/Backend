@@ -3,7 +3,9 @@ package com.rookies.log2doc.config;
 import com.rookies.log2doc.entity.CategoryType;
 import com.rookies.log2doc.entity.Role;
 import com.rookies.log2doc.entity.User;
+import com.rookies.log2doc.entity.ErrorReport;
 import com.rookies.log2doc.repository.CategoryTypeRepository;
+import com.rookies.log2doc.repository.ErrorReportRepository;
 import com.rookies.log2doc.repository.RoleRepository;
 import com.rookies.log2doc.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +38,7 @@ public class DataInitializer implements CommandLineRunner {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final CategoryTypeRepository categoryTypeRepository;
+    private final ErrorReportRepository errorReportRepository;
 
     /**
      * 애플리케이션 시작 시 실행되는 메서드
@@ -56,8 +59,11 @@ public class DataInitializer implements CommandLineRunner {
             // 3. 테스트 사용자 생성
             initializeTestUsers();
 
-            // 4. 테스트 카테고리 DB 생성
+            // 4. 테스트 카테고리 생성
             initializeCategoryTypes();
+
+            // 5. 에러 리포트 생성
+            initializeErrorReports();
 
             log.info("데이터베이스 초기화 완료!");
         } catch (Exception e) {
@@ -220,5 +226,37 @@ public class DataInitializer implements CommandLineRunner {
 
         log.info("카테고리 타입 초기화 완료");
     }
+
+    private void initializeErrorReports() {
+        log.info("에러 리포트 샘플 데이터 초기화 중...");
+
+        errorReportRepository.save(ErrorReport.builder()
+                .message("NullPointerException: user is null")
+                .resolved(false)
+                .build());
+
+        errorReportRepository.save(ErrorReport.builder()
+                .message("TimeoutException: DB connection failed")
+                .resolved(false)
+                .build());
+
+        errorReportRepository.save(ErrorReport.builder()
+                .message("FileNotFoundException: config.yml not found")
+                .resolved(true)
+                .build());
+
+        errorReportRepository.save(ErrorReport.builder()
+                .message("UnauthorizedException: token expired")
+                .resolved(false)
+                .build());
+
+        errorReportRepository.save(ErrorReport.builder()
+                .message("IndexOutOfBoundsException")
+                .resolved(true)
+                .build());
+
+        log.info("에러 리포트 샘플 데이터 초기화 완료!");
+    }
+
 
 }

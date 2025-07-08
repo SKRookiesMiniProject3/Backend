@@ -1,5 +1,6 @@
 package com.rookies.log2doc.controller;
 
+import com.rookies.log2doc.dto.request.DocumentCreateRequest;
 import com.rookies.log2doc.dto.response.DocumentResponseDTO;
 import com.rookies.log2doc.entity.Document;
 import com.rookies.log2doc.entity.Role;
@@ -9,6 +10,7 @@ import com.rookies.log2doc.repository.RoleRepository;
 import com.rookies.log2doc.security.services.UserDetailsImpl;
 import com.rookies.log2doc.service.DocumentService;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -46,15 +48,20 @@ public class DocumentController {
      */
     @PostMapping("/upload")
     public ResponseEntity<Document> uploadDocument(
-            @RequestParam MultipartFile file,
-            @RequestParam Long categoryTypeId,
-            @RequestParam Long readRoleId,
+            @Valid @ModelAttribute DocumentCreateRequest request,
             @AuthenticationPrincipal UserDetailsImpl userDetails,
-            HttpServletRequest request
+            HttpServletRequest servletRequest
     ) throws IOException {
+
+        // ✅ DTO에서 꺼내기
+        MultipartFile file = request.getFile();
+        String title = request.getTitle();
+        String content = request.getContent();
+        Long categoryTypeId = request.getCategoryTypeId();
+        Long readRoleId = request.getReadRoleId();
+
         // ✅ 현재 사용자 직급 레벨 가져오기
-        int userLevel = userDetails.getRoleId(); // 또는 getCurrentLevel() 사용
-        // ex) 5 → 과장, 7 → 부장
+        int userLevel = userDetails.getRoleId();
 
         // ✅ 업로드 대상 읽기 권한 Role 불러오기
         Role readRole = roleRepository.findById(readRoleId)
@@ -62,28 +69,33 @@ public class DocumentController {
 
         int targetRoleLevel = readRole.getName().getLevel();
 
-        // ✅ 비교: 내 레벨보다 높은 직급이면 차단!
+        // ✅ 직급 비교: 내 레벨보다 높은 직급이면 차단!
         if (targetRoleLevel > userLevel) {
             throw new PermissionDeniedException("내 직급보다 높은 접근 권한은 설정할 수 없습니다!");
         }
 
-        // ✅ 통과 시 서비스 호출
+        // ✅ 통과 시 서비스 호출 (title, content 포함)
         Document saved = documentService.uploadDocument(
                 file,
+                title,
+                content,
                 categoryTypeId,
                 readRoleId,
                 userDetails.getId(),
                 userDetails.getRoleName()
         );
 
-        // (필요하다면 성공 로그 전송)
-        Map<String, Object> logData = logBuilder.buildBaseLog(request,
-                SecurityContextHolder.getContext().getAuthentication());
+        // ✅ 로그 빌더로 기록
+        Map<String, Object> logData = logBuilder.buildBaseLog(
+                servletRequest,
+                SecurityContextHolder.getContext().getAuthentication()
+        );
         logData.put("access_result", "SUCCESS");
         logData.put("response_status", 200);
         logData.put("action_type", "CREATE");
         logData.put("document_id", saved.getId());
         logData.put("document_owner", saved.getAuthor());
+
         logSender.sendLog(logData);
 
         return ResponseEntity.ok(saved);

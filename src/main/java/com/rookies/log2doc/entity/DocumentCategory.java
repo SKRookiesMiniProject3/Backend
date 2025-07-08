@@ -18,6 +18,7 @@ public class DocumentCategory {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "document_id")
+    @com.fasterxml.jackson.annotation.JsonBackReference
     private Document document;
 
     @ManyToOne(fetch = FetchType.LAZY)
