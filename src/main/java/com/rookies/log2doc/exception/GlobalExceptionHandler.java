@@ -16,6 +16,8 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.client.RestTemplate;
+import jakarta.validation.ConstraintViolationException;
+
 
 import java.time.Instant;
 import java.util.Collections;
@@ -189,6 +191,23 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(new MessageResponse("요청 본문이 올바르지 않습니다.", false));
+    }
+
+    // ✔️ @RequestParam/@PathVariable 제약 조건 위반
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<MessageResponse> handleConstraintViolation(
+            ConstraintViolationException ex, HttpServletRequest request) {
+
+        String combinedErrors = ex.getConstraintViolations().stream()
+                .map(violation -> violation.getPropertyPath() + ": " + violation.getMessage())
+                .collect(Collectors.joining(", "));
+
+        log.error("유효성 검증 실패(ConstraintViolation): {}", combinedErrors);
+
+        sendLogToFlask(request, combinedErrors, "VALIDATION_ERROR", "VALIDATE");
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new MessageResponse(combinedErrors, false));
     }
 
 }
