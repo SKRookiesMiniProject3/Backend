@@ -55,12 +55,18 @@ public class GlobalExceptionHandler {
 
         log.info("📡 Flask로 보낼 로그 데이터: {}", logData);
 
-        // ✅ RestClient 사용
-        restClient.post()
-                .uri("http://flask-server/logs")
-                .body(logData)
-                .retrieve()
-                .body(String.class);
+        try {
+            restClient.post()
+                    .uri("http://flask-server/logs")
+                    .body(logData)
+                    .retrieve()
+                    .body(String.class);
+
+            log.info("✅ Flask 전송 성공");
+        } catch (Exception e) {
+            log.error("🚨 Flask 로그 전송 실패: {}", e.getMessage());
+            // 절대 throw 하지 않음!
+        }
     }
 
     @ExceptionHandler(TokenRefreshException.class)
