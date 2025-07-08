@@ -10,15 +10,9 @@ import java.util.Optional;
 
 /**
  * Document 엔티티 JPA Repository
- * - Soft Delete 제외 기본 조회
  * - 권한(Role) Fetch Join 포함 조회 지원
  */
 public interface DocumentRepository extends JpaRepository<Document, Long> {
-
-    /**
-     * 삭제되지 않은 모든 문서 리스트 조회
-     */
-    List<Document> findByIsDeletedFalse();
 
     /**
      * 파일 해시(filePath)로 단일 문서 조회
@@ -27,56 +21,44 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
 
     @Query("""
             SELECT DISTINCT d FROM Document d
+            JOIN d.documentCategories dc
+            JOIN dc.categoryType ct
             JOIN FETCH d.readRole
-            JOIN FETCH d.writeRole
-            JOIN FETCH d.deleteRole
-            LEFT JOIN FETCH d.documentCategories dc
-            LEFT JOIN FETCH dc.categoryType ct
-            WHERE d.isDeleted = false
-            AND ct.id = :categoryTypeId
+            WHERE ct.id = :categoryTypeId
             """)
     List<Document> findByCategoryTypeIdAndIsDeletedFalseWithRoles(@Param("categoryTypeId") Long categoryTypeId);
 
+
     /**
-     * 전체 문서 리스트 조회 + 권한 Role Fetch Join (Soft Delete 제외)
+     * 전체 문서 리스트 조회 + 권한 Role Fetch Join
      */
     @Query("""
-            SELECT DISTINCT d FROM Document d
-            JOIN FETCH d.readRole
-            JOIN FETCH d.writeRole
-            JOIN FETCH d.deleteRole
-            LEFT JOIN FETCH d.documentCategories dc
-            LEFT JOIN FETCH dc.categoryType
-            WHERE d.isDeleted = false
+                SELECT d FROM Document d
+                JOIN FETCH d.readRole
             """)
     List<Document> findAllWithRoles();
+
+    /**
+     * ID로 단일 문서 조회 + 권한 Role + 카테고리 Fetch Join (Soft Delete 제외)
+     */
+    @Query("""
+                SELECT DISTINCT d FROM Document d
+                JOIN FETCH d.readRole
+                JOIN FETCH d.documentCategories dc
+                JOIN FETCH dc.categoryType
+                WHERE d.id = :id
+            """)
+    Optional<Document> findByIdWithRolesAndCategories(@Param("id") Long id);
 
     /**
      * ID로 단일 문서 조회 + 권한 Role Fetch Join (Soft Delete 제외)
      */
     @Query("""
-                SELECT DISTINCT d FROM Document d
-                JOIN FETCH d.readRole
-                JOIN FETCH d.writeRole
-                JOIN FETCH d.deleteRole
-                LEFT JOIN FETCH d.documentCategories dc
-                LEFT JOIN FETCH dc.categoryType
-                WHERE d.id = :id AND d.isDeleted = false
-            """)
-    Optional<Document> findByIdWithRoles(@Param("id") Long id);
-
-    /**
-     * ID로 단일 문서 조회 + 권한 Role Fetch Join (Soft Delete 무시)
-     * - 하드 삭제 시 사용
-     */
-    @Query("""
                 SELECT d FROM Document d
                 JOIN FETCH d.readRole
-                JOIN FETCH d.writeRole
-                JOIN FETCH d.deleteRole
                 WHERE d.id = :id
             """)
-    Optional<Document> findByIdWithRolesIgnoreIsDeleted(@Param("id") Long id);
+    Optional<Document> findByIdWithRoles(@Param("id") Long id);
 
     /**
      * 파일 해시(filePath)로 단일 문서 조회 + 권한 Role Fetch Join
@@ -85,10 +67,22 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
     @Query("""
                 SELECT d FROM Document d
                 JOIN FETCH d.readRole
-                JOIN FETCH d.writeRole
-                JOIN FETCH d.deleteRole
                 WHERE d.filePath = :filePath
             """)
     Optional<Document> findByFilePathWithRoles(@Param("filePath") String filePath);
+
+    /**
+     * 파일 해시(filePath)로 단일 문서 조회 + 권한 Role + 카테고리 Fetch Join
+     * - 해시 기반 단일 문서 조회 + DTO 변환에 필요
+     */
+    @Query("""
+                SELECT DISTINCT d FROM Document d
+                JOIN FETCH d.readRole
+                JOIN FETCH d.documentCategories dc
+                JOIN FETCH dc.categoryType
+                WHERE d.filePath = :filePath
+            """)
+    Optional<Document> findByFilePathWithRolesAndCategories(@Param("filePath") String filePath);
+
 
 }

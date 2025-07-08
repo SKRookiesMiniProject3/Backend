@@ -1,5 +1,6 @@
 package com.rookies.log2doc.config;
 
+import com.rookies.log2doc.exception.CustomAccessDeniedHandler;
 import com.rookies.log2doc.security.jwt.AuthEntryPointJwt;
 import com.rookies.log2doc.security.jwt.AuthTokenFilter;
 import com.rookies.log2doc.security.services.UserDetailsServiceImpl;
@@ -34,16 +35,17 @@ import java.util.List;
 @EnableMethodSecurity(prePostEnabled = true)
 @RequiredArgsConstructor
 public class WebSecurityConfig {
-    
+
     private final UserDetailsServiceImpl userDetailsService;
     private final AuthEntryPointJwt unauthorizedHandler;
     private final AuthTokenFilter authTokenFilter;
-    
+    private final CustomAccessDeniedHandler customAccessDeniedHandler;
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
-    
+
     @Bean
     public DaoAuthenticationProvider authenticationProvider() {
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
@@ -51,36 +53,38 @@ public class WebSecurityConfig {
         authProvider.setPasswordEncoder(passwordEncoder());
         return authProvider;
     }
-    
+
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration authConfig) throws Exception {
         return authConfig.getAuthenticationManager();
     }
-    
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http.cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
-                .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler))
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint(unauthorizedHandler)
+                        .accessDeniedHandler(customAccessDeniedHandler)
+                )
+
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .headers(headers -> headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::deny))
-                .authorizeHttpRequests(auth -> 
-                    auth.requestMatchers("/api/v1/auth/**").permitAll()
-                        .requestMatchers("/api/v1/public/**").permitAll()
-                        .requestMatchers("/actuator/**").permitAll()
-                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                            // 모든 /documents/** 경로는 인증 없이 접근 허용
-                            // -> 대신 DocumentService 내부에서 역할별 권한을 직접 검증함
-                        .requestMatchers(HttpMethod.POST, "/documents/**").authenticated()
+                .authorizeHttpRequests(auth ->
+                        auth.requestMatchers("/api/v1/auth/**").permitAll()
+                                .requestMatchers("/api/v1/public/**").permitAll()
+                                .requestMatchers("/actuator/**").permitAll()
+                                .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                                .requestMatchers("/documents/**").authenticated() // ✅ GET, POST 모두 로그인 필요
                                 .anyRequest().authenticated()
                 );
-        
+
         http.authenticationProvider(authenticationProvider());
         http.addFilterBefore(authTokenFilter, UsernamePasswordAuthenticationFilter.class);
-        
+
         return http.build();
     }
-    
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
@@ -88,7 +92,7 @@ public class WebSecurityConfig {
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
-        
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;

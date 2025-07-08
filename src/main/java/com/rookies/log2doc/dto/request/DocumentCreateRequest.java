@@ -23,10 +23,4 @@ public class DocumentCreateRequest {
 
     // 읽기 권한 Role ID
     private Long readRoleId;
-
-    // 쓰기 권한 Role ID
-    private Long writeRoleId;
-
-    // 삭제 권한 Role ID
-    private Long deleteRoleId;
 }

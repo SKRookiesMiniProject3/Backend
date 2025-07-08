@@ -67,20 +67,10 @@ public class Document {
     private String createdRole;
 
     /**
-     * 소프트 삭제 여부
-     */
-    @Column(nullable = false)
-    private Boolean isDeleted;
-
-    /**
-     * 생성/수정/삭제 일시
+     * 생성 일시
      */
     @Column(nullable = false)
     private LocalDateTime createdAt;
-
-    private LocalDateTime updatedAt;
-
-    private LocalDateTime deletedAt;
 
     /**
      * 접근 권한 정보
@@ -89,27 +79,8 @@ public class Document {
     @JoinColumn(name = "read_role_id")
     private Role readRole;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "write_role_id")
-    private Role writeRole;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "delete_role_id")
-    private Role deleteRole;
-
-    /**
-     * 수정일 자동 갱신
-     */
-    @PreUpdate
-    public void preUpdate() {
-        this.updatedAt = LocalDateTime.now();
-    }
-
     @PrePersist
     public void prePersist() {
-        if (this.isDeleted == null) {
-            this.isDeleted = false;
-        }
         if (this.status == null) {
             this.status = DocumentStatus.PROCESSING;
         }
@@ -117,5 +88,4 @@ public class Document {
             this.createdAt = LocalDateTime.now();
         }
     }
-
 }

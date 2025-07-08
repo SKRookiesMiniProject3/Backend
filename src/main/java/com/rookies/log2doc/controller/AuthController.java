@@ -48,8 +48,9 @@ public class AuthController {
 
     /**
      * 사용자 로그인
+     *
      * @param loginRequest 로그인 요청 정보
-     * @param request HTTP 요청 객체
+     * @param request      HTTP 요청 객체
      * @return JWT 토큰 정보
      */
     @PostMapping("/signin")
@@ -67,9 +68,9 @@ public class AuthController {
             String jwt = jwtUtils.generateJwtToken(authentication);
 
             UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
-
-            // 사용자의 실제 역할만 반환 (단일 문자열)
-            String role = userDetails.getCurrentRoleName().name();
+            List<String> roles = userDetails.getAuthorities().stream()
+                    .map(item -> item.getAuthority())
+                    .collect(Collectors.toList());
 
             // 기기 정보 및 IP 주소 추출
             String deviceInfo = getDeviceInfo(request);
@@ -91,7 +92,7 @@ public class AuthController {
                     userDetails.getId(),
                     userDetails.getUsername(),
                     userDetails.getEmail(),
-                    role,  // roles 배열 대신 role 단일 문자열
+                    roles,
                     expiresIn
             ));
 
@@ -104,6 +105,7 @@ public class AuthController {
 
     /**
      * 토큰 갱신
+     *
      * @param request 토큰 갱신 요청
      * @return 새로운 JWT 토큰
      */
@@ -138,6 +140,7 @@ public class AuthController {
 
     /**
      * 로그아웃
+     *
      * @param request 토큰 갱신 요청 (리프레시 토큰 포함)
      * @return 로그아웃 결과 메시지
      */
@@ -164,6 +167,7 @@ public class AuthController {
 
     /**
      * 모든 기기에서 로그아웃
+     *
      * @return 로그아웃 결과 메시지
      */
     @PostMapping("/signout-all")
@@ -194,6 +198,7 @@ public class AuthController {
 
     /**
      * 기기 정보 추출
+     *
      * @param request HTTP 요청 객체
      * @return 기기 정보 문자열
      */
@@ -204,6 +209,7 @@ public class AuthController {
 
     /**
      * 클라이언트 IP 주소 추출
+     *
      * @param request HTTP 요청 객체
      * @return IP 주소
      */
