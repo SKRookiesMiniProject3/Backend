@@ -5,7 +5,7 @@ import com.rookies.log2doc.dto.ErrorReportDTO;
 import com.rookies.log2doc.dto.request.CreateErrorReportRequest;
 import com.rookies.log2doc.entity.ErrorReport;
 import com.rookies.log2doc.repository.ErrorReportRepository;
-import com.rookies.log2doc.service.FlaskReportService;
+import com.rookies.log2doc.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -17,57 +17,90 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-// 3. ErrorReportService.java 개선
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class ErrorReportService {
 
     private final ErrorReportRepository errorReportRepository;
-    private final FlaskReportService flaskReportService; // Flask 연동
+    private final UserRepository userRepository;
+    private final FlaskReportService flaskReportService;
 
     // ✅ 일별 에러 카운트
     public List<ErrorCountPerDayDTO> getDailyCounts() {
         return errorReportRepository.findDailyErrorCounts();
     }
 
-    // ✅ 최신순 리스트 (페이징 추가)
-    public List<ErrorReportDTO> getLatestErrors() {
-        return errorReportRepository.findAllByOrderByCreatedAtDesc()
+    // ✅ 최신순 리스트 (삭제되지 않은 것만)
+    public List<ErrorReportDTO> getLatestReports() {
+        return errorReportRepository.findByIsDeletedFalseOrderByCreatedDtDesc()
                 .stream()
                 .limit(50) // 최대 50개만 반환
                 .map(this::toDTO)
                 .collect(Collectors.toList());
     }
 
-    // ✅ 미해결 리스트
-    public List<ErrorReportDTO> getUnresolvedErrors() {
-        return errorReportRepository.findByResolvedFalseOrderByCreatedAtDesc()
+    // ✅ 진행중인 리포트 조회
+    public List<ErrorReportDTO> getInProgressReports() {
+        return errorReportRepository.findInProgressReports()
                 .stream()
                 .map(this::toDTO)
                 .collect(Collectors.toList());
     }
 
-    // ✅ 에러 메시지 입력 (개선됨)
+    // ✅ 완료된 리포트 조회
+    public List<ErrorReportDTO> getCompletedReports() {
+        return errorReportRepository.findCompletedReports()
+                .stream()
+                .map(this::toDTO)
+                .collect(Collectors.toList());
+    }
+
+    // ✅ 시작되지 않은 리포트 조회
+    public List<ErrorReportDTO> getNotStartedReports() {
+        return errorReportRepository.findNotStartedReports()
+                .stream()
+                .map(this::toDTO)
+                .collect(Collectors.toList());
+    }
+
+    // ✅ 에러 리포트 생성
     @Transactional
-    public ErrorReportDTO createError(CreateErrorReportRequest request) {
-        log.info("새로운 에러 리포트 생성 요청: {}", request.getMessage());
+    public ErrorReportDTO createErrorReport(CreateErrorReportRequest request) {
+        log.info("새로운 에러 리포트 생성 요청");
 
         try {
-            // 1️⃣ DB에 저장
+            // 1️⃣ 리포트 상태 검증
+            ErrorReport.ReportStatus status;
+            try {
+                status = ErrorReport.ReportStatus.valueOf(request.getReportStatus());
+            } catch (IllegalArgumentException e) {
+                status = ErrorReport.ReportStatus.NOT_STARTED;
+                log.warn("잘못된 리포트 상태: {}, 기본값으로 설정", request.getReportStatus());
+            }
+
+            // 2️⃣ 에러 원인 사용자 검증 (선택사항)
+            if (request.getErrorSourceMember() != null) {
+                boolean userExists = userRepository.existsById(request.getErrorSourceMember());
+                if (!userExists) {
+                    log.warn("존재하지 않는 사용자 ID: {}", request.getErrorSourceMember());
+                    // 존재하지 않는 사용자면 null로 설정
+                    request.setErrorSourceMember(null);
+                }
+            }
+
+            // 3️⃣ DB에 저장
             ErrorReport entity = ErrorReport.builder()
-                    .message(request.getMessage())
-                    .errorCode(request.getErrorCode())
-                    .resolved(request.getResolved() != null ? request.getResolved() : false)
-                    .description(request.getDescription())
-                    .severity(request.getSeverity())
-                    .location(request.getLocation())
+                    .reportFileId(request.getReportFileId())
+                    .errorSourceMember(request.getErrorSourceMember())
+                    .reportStatus(status)
+                    .reportComment(request.getReportComment())
                     .build();
 
             ErrorReport saved = errorReportRepository.save(entity);
             log.info("에러 리포트 DB 저장 완료 - ID: {}", saved.getId());
 
-            // 2️⃣ Flask로 비동기 전송
+            // 4️⃣ Flask로 비동기 전송
             sendToFlaskAsync(saved);
 
             return toDTO(saved);
@@ -78,27 +111,99 @@ public class ErrorReportService {
         }
     }
 
-    // ✅ 에러 해결 처리
+    // ✅ 에러 리포트 상태 변경
     @Transactional
-    public ErrorReportDTO resolveError(Long id) {
-        ErrorReport errorReport = errorReportRepository.findById(id)
+    public ErrorReportDTO updateReportStatus(Long id, String newStatus) {
+        ErrorReport errorReport = errorReportRepository.findByIdAndIsDeletedFalse(id)
                 .orElseThrow(() -> new RuntimeException("에러 리포트를 찾을 수 없습니다."));
 
-        errorReport.setResolved(true);
-        errorReport.setResolvedAt(LocalDateTime.now());
+        try {
+            ErrorReport.ReportStatus status = ErrorReport.ReportStatus.valueOf(newStatus);
+            errorReport.setReportStatus(status);
 
+            ErrorReport saved = errorReportRepository.save(errorReport);
+            log.info("에러 리포트 상태 변경 완료 - ID: {}, 상태: {}", id, newStatus);
+
+            return toDTO(saved);
+        } catch (IllegalArgumentException e) {
+            throw new RuntimeException("잘못된 리포트 상태입니다: " + newStatus);
+        }
+    }
+
+    // ✅ 에러 리포트 완료 처리
+    @Transactional
+    public ErrorReportDTO completeReport(Long id) {
+        ErrorReport errorReport = errorReportRepository.findByIdAndIsDeletedFalse(id)
+                .orElseThrow(() -> new RuntimeException("에러 리포트를 찾을 수 없습니다."));
+
+        errorReport.completeReport();
         ErrorReport saved = errorReportRepository.save(errorReport);
-        log.info("에러 리포트 해결 완료 - ID: {}", id);
+        log.info("에러 리포트 완료 처리 - ID: {}", id);
 
         return toDTO(saved);
     }
 
-    // ✅ 에러 상세 조회
-    public ErrorReportDTO getErrorById(Long id) {
-        ErrorReport errorReport = errorReportRepository.findById(id)
+    // ✅ 에러 리포트 시작
+    @Transactional
+    public ErrorReportDTO startReport(Long id) {
+        ErrorReport errorReport = errorReportRepository.findByIdAndIsDeletedFalse(id)
+                .orElseThrow(() -> new RuntimeException("에러 리포트를 찾을 수 없습니다."));
+
+        errorReport.startReport();
+        ErrorReport saved = errorReportRepository.save(errorReport);
+        log.info("에러 리포트 시작 - ID: {}", id);
+
+        return toDTO(saved);
+    }
+
+    // ✅ 에러 리포트 코멘트 수정
+    @Transactional
+    public ErrorReportDTO updateComment(Long id, String comment) {
+        ErrorReport errorReport = errorReportRepository.findByIdAndIsDeletedFalse(id)
+                .orElseThrow(() -> new RuntimeException("에러 리포트를 찾을 수 없습니다."));
+
+        errorReport.updateComment(comment);
+        ErrorReport saved = errorReportRepository.save(errorReport);
+        log.info("에러 리포트 코멘트 수정 완료 - ID: {}", id);
+
+        return toDTO(saved);
+    }
+
+    // ✅ 에러 리포트 소프트 삭제
+    @Transactional
+    public void deleteReport(Long id) {
+        ErrorReport errorReport = errorReportRepository.findByIdAndIsDeletedFalse(id)
+                .orElseThrow(() -> new RuntimeException("에러 리포트를 찾을 수 없습니다."));
+
+        errorReport.softDelete();
+        errorReportRepository.save(errorReport);
+        log.info("에러 리포트 삭제 완료 - ID: {}", id);
+    }
+
+    // ✅ 에러 리포트 상세 조회
+    public ErrorReportDTO getReportById(Long id) {
+        ErrorReport errorReport = errorReportRepository.findByIdAndIsDeletedFalse(id)
                 .orElseThrow(() -> new RuntimeException("에러 리포트를 찾을 수 없습니다."));
 
         return toDTO(errorReport);
+    }
+
+    // ✅ 특정 사용자의 에러 리포트 조회
+    public List<ErrorReportDTO> getReportsByMember(Long memberId) {
+        return errorReportRepository.findByErrorSourceMember(memberId)
+                .stream()
+                .map(this::toDTO)
+                .collect(Collectors.toList());
+    }
+
+    // ✅ 리포트 상태별 통계
+    public Map<String, Long> getReportStatistics() {
+        List<Object[]> results = errorReportRepository.countByReportStatus();
+        return results.stream()
+                .collect(Collectors.toMap(
+                        result -> ((ErrorReport.ReportStatus) result[0]).name(),
+                        result -> (Long) result[1]
+                ));
     }
 
     // ✅ Flask 비동기 전송
@@ -107,35 +212,42 @@ public class ErrorReportService {
         try {
             Map<String, Object> flaskData = Map.of(
                     "id", errorReport.getId(),
-                    "message", errorReport.getMessage(),
-                    "errorCode", errorReport.getErrorCode() != null ? errorReport.getErrorCode() : "",
-                    "severity", errorReport.getSeverity() != null ? errorReport.getSeverity() : "MEDIUM",
-                    "location", errorReport.getLocation() != null ? errorReport.getLocation() : "",
-                    "createdAt", errorReport.getCreatedAt().toString(),
-                    "resolved", errorReport.getResolved()
+                    "reportFileId", errorReport.getReportFileId() != null ? errorReport.getReportFileId() : "",
+                    "errorSourceMember", errorReport.getErrorSourceMember() != null ? errorReport.getErrorSourceMember() : "",
+                    "reportStatus", errorReport.getReportStatus().name(),
+                    "reportComment", errorReport.getReportComment() != null ? errorReport.getReportComment() : "",
+                    "createdDt", errorReport.getCreatedDt().toString(),
+                    "isDeleted", errorReport.getIsDeleted()
             );
 
             flaskReportService.sendErrorReportToFlask(flaskData);
-            log.info("Flask 전송 성공 - 에러 ID: {}", errorReport.getId());
+            log.info("Flask 전송 성공 - 에러 리포트 ID: {}", errorReport.getId());
 
         } catch (Exception e) {
-            log.error("Flask 전송 실패 - 에러 ID: {}", errorReport.getId(), e);
+            log.error("Flask 전송 실패 - 에러 리포트 ID: {}", errorReport.getId(), e);
             // Flask 전송 실패해도 애플리케이션은 계속 동작
         }
     }
 
-    // ✅ DTO 변환 (개선됨)
+    // ✅ DTO 변환
     private ErrorReportDTO toDTO(ErrorReport entity) {
+        String errorSourceMemberName = null;
+        if (entity.getErrorSourceMember() != null) {
+            // 사용자 이름 조회 (추후 구현)
+            errorSourceMemberName = "사용자_" + entity.getErrorSourceMember();
+        }
+
         return ErrorReportDTO.builder()
                 .id(entity.getId())
-                .message(entity.getMessage())
-                .errorCode(entity.getErrorCode())
-                .resolved(entity.getResolved())
-                .createdAt(entity.getCreatedAt())
-                .description(entity.getDescription())
-                .severity(entity.getSeverity())
-                .location(entity.getLocation())
-                .resolvedAt(entity.getResolvedAt())
+                .reportFileId(entity.getReportFileId())
+                .errorSourceMember(entity.getErrorSourceMember())
+                .reportStatus(entity.getReportStatus().name())
+                .reportStatusDescription(entity.getReportStatus().getDescription())
+                .reportComment(entity.getReportComment())
+                .isDeleted(entity.getIsDeleted())
+                .createdDt(entity.getCreatedDt())
+                .deletedDt(entity.getDeletedDt())
+                .errorSourceMemberName(errorSourceMemberName)
                 .build();
     }
 }

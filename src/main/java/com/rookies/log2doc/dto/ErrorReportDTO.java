@@ -11,12 +11,16 @@ import java.time.LocalDateTime;
 @Getter
 public class ErrorReportDTO {
     private Long id;
-    private String message;
-    private String errorCode;
-    private Boolean resolved;
-    private LocalDateTime createdAt;
-    private String description;
-    private String severity;
-    private String location;
-    private LocalDateTime resolvedAt;
+    private Long reportFileId;
+    private Long errorSourceMember;
+    private String reportStatus;
+    private String reportStatusDescription;
+    private String reportComment;
+    private Boolean isDeleted;
+    private LocalDateTime createdDt;
+    private LocalDateTime deletedDt;
+
+    // 추가 정보 (조인 등으로 가져올 수 있는 정보)
+    private String errorSourceMemberName; // 에러 원인 사용자 이름
+    private String reportFileName; // 리포트 파일명
 }

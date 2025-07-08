@@ -233,33 +233,47 @@ public class DataInitializer implements CommandLineRunner {
     private void initializeErrorReports() {
         log.info("에러 리포트 샘플 데이터 초기화 중...");
 
+        // 샘플 에러 리포트 1 - 시작 안함
         errorReportRepository.save(ErrorReport.builder()
-                .message("NullPointerException: user is null")
-                .resolved(false)
+                .reportFileId(null) // 파일 없음
+                .errorSourceMember(1L) // 사용자 ID 1
+                .reportStatus(ErrorReport.ReportStatus.NOT_STARTED)
+                .reportComment("NullPointerException 발생으로 인한 리포트 생성")
                 .build());
 
+        // 샘플 에러 리포트 2 - 진행중
         errorReportRepository.save(ErrorReport.builder()
-                .message("TimeoutException: DB connection failed")
-                .resolved(false)
+                .reportFileId(null)
+                .errorSourceMember(2L) // 사용자 ID 2
+                .reportStatus(ErrorReport.ReportStatus.IN_PROGRESS)
+                .reportComment("DB 연결 실패 관련 조사 진행중")
                 .build());
 
+        // 샘플 에러 리포트 3 - 완료
         errorReportRepository.save(ErrorReport.builder()
-                .message("FileNotFoundException: config.yml not found")
-                .resolved(true)
+                .reportFileId(null)
+                .errorSourceMember(null) // 원인 사용자 불명
+                .reportStatus(ErrorReport.ReportStatus.COMPLETED)
+                .reportComment("config.yml 파일 누락 문제 해결 완료")
                 .build());
 
+        // 샘플 에러 리포트 4 - 보류
         errorReportRepository.save(ErrorReport.builder()
-                .message("UnauthorizedException: token expired")
-                .resolved(false)
+                .reportFileId(null)
+                .errorSourceMember(3L)
+                .reportStatus(ErrorReport.ReportStatus.ON_HOLD)
+                .reportComment("토큰 만료 문제 - 추가 조사 필요로 보류")
                 .build());
 
+        // 샘플 에러 리포트 5 - 취소
         errorReportRepository.save(ErrorReport.builder()
-                .message("IndexOutOfBoundsException")
-                .resolved(true)
+                .reportFileId(null)
+                .errorSourceMember(null)
+                .reportStatus(ErrorReport.ReportStatus.CANCELLED)
+                .reportComment("IndexOutOfBoundsException - 중복 리포트로 취소")
                 .build());
 
         log.info("에러 리포트 샘플 데이터 초기화 완료!");
     }
-
 
 }
