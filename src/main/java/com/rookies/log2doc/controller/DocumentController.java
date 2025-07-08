@@ -5,7 +5,6 @@ import com.rookies.log2doc.dto.response.DocumentResponseDTO;
 import com.rookies.log2doc.entity.Document;
 import com.rookies.log2doc.entity.Role;
 import com.rookies.log2doc.exception.PermissionDeniedException;
-import com.rookies.log2doc.log.*;
 import com.rookies.log2doc.repository.RoleRepository;
 import com.rookies.log2doc.security.services.UserDetailsImpl;
 import com.rookies.log2doc.service.DocumentService;
@@ -17,7 +16,6 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -26,8 +24,6 @@ import java.net.MalformedURLException;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
-
-import static org.springframework.data.jpa.domain.AbstractPersistable_.id;
 
 @RestController
 @RequestMapping("/documents")
@@ -40,7 +36,7 @@ public class DocumentController {
     private RoleRepository roleRepository;
 
     /**
-     * 파일 업로드 후
+     * 파일 업로드
      */
     @PostMapping("/upload")
     public ResponseEntity<Document> uploadDocument(
@@ -49,7 +45,7 @@ public class DocumentController {
             HttpServletRequest servletRequest
     ) throws IOException {
 
-        // ✅ DTO에서 꺼내기
+        // ✅ DTO에서 데이터 추출
         MultipartFile file = request.getFile();
         String title = request.getTitle();
         String content = request.getContent();
@@ -70,7 +66,7 @@ public class DocumentController {
             throw new PermissionDeniedException("내 직급보다 높은 접근 권한은 설정할 수 없습니다!");
         }
 
-        // ✅ 통과 시 서비스 호출 (title, content 포함)
+        // ✅ 통과 시 서비스 호출
         Document saved = documentService.uploadDocument(
                 file,
                 title,
@@ -81,20 +77,74 @@ public class DocumentController {
                 userDetails.getRoleName()
         );
 
+        // ✅ Request Attribute 설정 (Interceptor에서 사용)
         servletRequest.setAttribute("document_id", saved.getId());
         servletRequest.setAttribute("document_owner", saved.getAuthor());
 
+        return ResponseEntity.ok(saved);
+    }
+
+    /**
+     * 문서 리스트 조회
+     * - 카테고리 및 기간(startDate ~ endDate) 필터링 가능
+     */
+    @GetMapping
+    public ResponseEntity<List<DocumentResponseDTO>> getDocuments(
+            @RequestParam(required = false) Long categoryTypeId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @AuthenticationPrincipal UserDetailsImpl userDetails,
+            HttpServletRequest request
+    ) {
+        // Service에서 DTO까지 변환해서 반환
+        List<DocumentResponseDTO> result = documentService.getDocumentListAsDTO(
+                categoryTypeId,
+                userDetails.getRoleName(),
+                startDate,
+                endDate
+        );
+
+        return ResponseEntity.ok(result);
+    }
+
     /**
      * 단일 문서 조회 (해시 경로 기준)
-     * - 권한 체크 포함 + DTO 변환 + 로그 전송
+     * - 권한 체크 포함 + DTO 변환
      */
     @GetMapping("/hash/{hash}")
     public ResponseEntity<DocumentResponseDTO> getDocumentByHash(
             @PathVariable String hash,
             @AuthenticationPrincipal UserDetailsImpl userDetails,
             HttpServletRequest request
-    ){
-            DocumentResponseDTO doc = documentService.getDocumentByHash(hash, userDetails.getRoleId());
+    ) {
+        DocumentResponseDTO doc = documentService.getDocumentByHash(hash, userDetails.getRoleId());
+
+        // ✅ Request Attribute 설정
+        request.setAttribute("document_id", doc.getId());
+        request.setAttribute("document_owner", doc.getOwner());
+        request.setAttribute("document_hash", hash);
+
+        return ResponseEntity.ok(doc);
+    }
+
+    /**
+     * 단일 문서 조회 (ID 기준)
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<DocumentResponseDTO> getDocument(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetailsImpl userDetails,
+            HttpServletRequest request
+    ) {
+        // ✅ Request Attribute 설정
+        request.setAttribute("document_id", id);
+
+        DocumentResponseDTO doc = documentService.getDocument(id, userDetails.getRoleId());
+
+        // ✅ 추가 정보 설정
+        request.setAttribute("document_owner", doc.getOwner());
+
+        return ResponseEntity.ok(doc);
     }
 
     /**
@@ -106,17 +156,37 @@ public class DocumentController {
             @AuthenticationPrincipal UserDetailsImpl userDetails,
             HttpServletRequest request
     ) throws MalformedURLException {
+
         Resource fileResource = documentService.loadFileAsResource(id, userDetails.getRoleId());
-        DocumentResponseDTO doc = documentService.getDocument(id, userDetails.getRoleId()); // ✅ DTO로 변경!
+        DocumentResponseDTO doc = documentService.getDocument(id, userDetails.getRoleId());
+
+        // ✅ Request Attribute 설정
+        request.setAttribute("document_id", doc.getId());
+        request.setAttribute("document_owner", doc.getOwner());
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"" + fileResource.getFilename() + "\"")
+                .body(fileResource);
     }
 
+    /**
+     * 문서 상태 조회
+     */
     @GetMapping("/{id}/status")
     public ResponseEntity<Map<String, Object>> getDocumentStatus(
             @PathVariable Long id,
-            @AuthenticationPrincipal UserDetailsImpl userDetails
+            @AuthenticationPrincipal UserDetailsImpl userDetails,
+            HttpServletRequest request
     ) {
+        // ✅ Request Attribute 설정
+        request.setAttribute("document_id", id);
+
         // 권한 체크 포함 단일 조회
         DocumentResponseDTO doc = documentService.getDocument(id, userDetails.getRoleId());
+
+        // ✅ 추가 정보 설정
+        request.setAttribute("document_owner", doc.getOwner());
 
         Map<String, Object> result = Map.of(
                 "documentId", doc.getId(),

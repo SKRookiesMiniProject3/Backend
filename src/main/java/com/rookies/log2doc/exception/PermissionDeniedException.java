@@ -4,7 +4,8 @@ import org.springframework.security.access.AccessDeniedException;
 
 /**
  * 사용자가 필요한 권한(Role)이 부족할 때 발생하는 예외
- * ex) 문서 조회 시 권한 미달
+ * Spring Security의 AccessDeniedException을 상속받아
+ * 403 Forbidden 응답을 자동으로 처리
  */
 public class PermissionDeniedException extends AccessDeniedException {
 

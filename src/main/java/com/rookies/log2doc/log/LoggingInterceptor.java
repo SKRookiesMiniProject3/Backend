@@ -1,7 +1,9 @@
 package com.rookies.log2doc.log;
 
+import com.rookies.log2doc.log.LogSender;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
@@ -9,6 +11,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
+import java.time.Instant;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 
 @Component
@@ -23,9 +28,15 @@ public class LoggingInterceptor implements HandlerInterceptor {
     public void afterCompletion(HttpServletRequest request, HttpServletResponse response,
                                 Object handler, Exception ex) {
 
-        // ✅ 예외가 있으면 별도 처리 (GlobalExceptionHandler에서 처리함)
+        // ✅ 예외가 있으면 GlobalExceptionHandler에서 처리하므로 스킵
         if (ex != null) {
             log.debug("❌ Interceptor: 예외 발생 → GlobalExceptionHandler에서 처리");
+            return;
+        }
+
+        // ✅ 응답 상태가 4xx, 5xx면 예외 처리로 간주하고 스킵
+        if (response.getStatus() >= 400) {
+            log.debug("❌ Interceptor: 에러 응답 ({}초) → GlobalExceptionHandler에서 처리", response.getStatus());
             return;
         }
 
@@ -36,14 +47,16 @@ public class LoggingInterceptor implements HandlerInterceptor {
             return;
         }
 
-        // ✅ 통합 로그 생성 및 전송
+        // ✅ 성공 케이스만 통합 로그 생성 및 전송
         try {
             Map<String, Object> logData = buildUnifiedLog(request, response);
             logSender.sendLog(logData);
-            log.info("✅ 통합 로그 전송 완료: {} {}", request.getMethod(), requestUrl);
+            log.info("✅ 통합 로그 전송 완료: {} {} ({})",
+                    request.getMethod(), requestUrl, response.getStatus());
 
         } catch (Exception e) {
-            log.error("🚨 통합 로그 처리 실패", e);
+            log.error("🚨 통합 로그 처리 실패: {}", e.getMessage());
+            log.debug("통합 로그 처리 실패 상세:", e);
         }
     }
 
@@ -55,17 +68,41 @@ public class LoggingInterceptor implements HandlerInterceptor {
                 requestUrl.startsWith("/swagger-ui") ||       // Swagger UI
                 requestUrl.startsWith("/v3/api-docs") ||      // API Docs
                 requestUrl.startsWith("/actuator") ||         // Actuator
-                requestUrl.startsWith("/test-");              // 테스트 API
+                requestUrl.startsWith("/test-") ||            // 테스트 API
+                requestUrl.startsWith("/h2-console");         // H2 Console
     }
 
     /**
-     * 통합 로그 데이터 생성
+     * 통합 로그 데이터 생성 (세션 오류 수정)
      */
     private Map<String, Object> buildUnifiedLog(HttpServletRequest request, HttpServletResponse response) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 
-        // 기본 로그 데이터 생성
-        Map<String, Object> logData = logBuilder.buildBaseLog(request, auth);
+        // ✅ 기본 로그 데이터 생성 (세션 정보 안전하게 처리)
+        Map<String, Object> logData = new HashMap<>();
+
+        // 기본 정보
+        logData.put("timestamp", Instant.now().toString());
+        logData.put("request_method", request.getMethod());
+        logData.put("request_url", request.getRequestURI());
+
+        // ✅ 세션 정보 안전하게 처리
+        String sessionId = getSessionIdSafely(request);
+        logData.put("session_id", sessionId);
+
+        // 헤더 정보
+        Map<String, String> headersMap = Collections.list(request.getHeaderNames()).stream()
+                .collect(HashMap::new, (m, k) -> m.put(k, request.getHeader(k)), HashMap::putAll);
+        logData.put("request_headers", headersMap);
+
+        // 사용자 정보
+        if (auth != null && auth.isAuthenticated()) {
+            logData.put("user_id", auth.getName());
+            logData.put("user_role", auth.getAuthorities().toString());
+        } else {
+            logData.put("user_id", "anonymous");
+            logData.put("user_role", "UNKNOWN");
+        }
 
         // 응답 상태 설정
         logData.put("response_status", response.getStatus());
@@ -75,10 +112,43 @@ public class LoggingInterceptor implements HandlerInterceptor {
         String actionType = determineActionType(request);
         logData.put("action_type", actionType);
 
-        // 문서 관련 정보 추출 (필요한 경우)
-        extractDocumentInfo(request, logData);
+        // 기본 보안 필드
+        logData.put("security_events", Collections.emptyList());
+        logData.put("threat_level", "LOW");
+        logData.put("is_suspicious", false);
+        logData.put("suspicious_patterns", Collections.emptyList());
+
+        // 문서/에러 리포트 관련 정보 추출
+        extractAttributeInfo(request, logData);
 
         return logData;
+    }
+
+    /**
+     * 세션 ID를 안전하게 가져오는 메서드
+     */
+    private String getSessionIdSafely(HttpServletRequest request) {
+        try {
+            // ✅ 기존 세션만 가져오기 (새로 생성하지 않음)
+            HttpSession existingSession = request.getSession(false);
+            if (existingSession != null) {
+                return existingSession.getId();
+            }
+
+            // ✅ 세션이 없으면 요청 ID나 다른 식별자 사용
+            String requestId = request.getHeader("X-Request-ID");
+            if (requestId != null) {
+                return "req_" + requestId;
+            }
+
+            // ✅ 마지막 수단: 현재 시간 기반 ID 생성
+            return "temp_" + System.currentTimeMillis();
+
+        } catch (IllegalStateException e) {
+            // ✅ 세션 생성 불가 시 임시 ID 사용
+            log.debug("세션 접근 불가, 임시 ID 사용: {}", e.getMessage());
+            return "no_session_" + System.currentTimeMillis();
+        }
     }
 
     /**
@@ -90,9 +160,12 @@ public class LoggingInterceptor implements HandlerInterceptor {
 
         // 문서 관련
         if (url.startsWith("/documents")) {
-            if ("POST".equals(method)) return "CREATE";
+            if ("POST".equals(method) && url.contains("/upload")) return "CREATE";
             if ("GET".equals(method) && url.contains("/download/")) return "DOWNLOAD";
-            if ("GET".equals(method)) return "READ";
+            if ("GET".equals(method) && url.matches(".*/\\d+$")) return "READ";
+            if ("GET".equals(method) && url.contains("/hash/")) return "READ";
+            if ("GET".equals(method) && url.contains("/status")) return "STATUS_CHECK";
+            if ("GET".equals(method)) return "LIST";
             if ("PUT".equals(method) || "PATCH".equals(method)) return "UPDATE";
             if ("DELETE".equals(method)) return "DELETE";
         }
@@ -100,7 +173,10 @@ public class LoggingInterceptor implements HandlerInterceptor {
         // 에러 리포트 관련
         if (url.startsWith("/errors")) {
             if ("POST".equals(method)) return "CREATE_ERROR_REPORT";
-            if ("GET".equals(method)) return "READ_ERROR_REPORT";
+            if ("GET".equals(method) && url.contains("/daily-count")) return "DAILY_COUNT";
+            if ("GET".equals(method) && url.contains("/latest")) return "LATEST_LIST";
+            if ("GET".equals(method) && url.contains("/unresolved")) return "UNRESOLVED_LIST";
+            if ("GET".equals(method) && url.matches(".*/\\d+$")) return "READ_ERROR_REPORT";
             if ("PATCH".equals(method) && url.contains("/resolve")) return "RESOLVE_ERROR";
         }
 
@@ -113,30 +189,10 @@ public class LoggingInterceptor implements HandlerInterceptor {
     }
 
     /**
-     * 문서 관련 정보 추출
+     * Request Attribute에서 정보 추출
      */
-    private void extractDocumentInfo(HttpServletRequest request, Map<String, Object> logData) {
-        String url = request.getRequestURI();
-
-        // URL에서 문서 ID 추출
-        if (url.startsWith("/documents/") && !url.equals("/documents")) {
-            String[] parts = url.split("/");
-            if (parts.length >= 3) {
-                try {
-                    String docIdOrHash = parts[2];
-                    if (docIdOrHash.matches("\\d+")) {
-                        logData.put("document_id", Long.parseLong(docIdOrHash));
-                    } else {
-                        logData.put("document_hash", docIdOrHash);
-                    }
-                } catch (NumberFormatException e) {
-                    // 해시값인 경우 또는 기타 경우
-                    logData.put("document_hash", parts[2]);
-                }
-            }
-        }
-
-        // Request attributes에서 추가 정보 추출
+    private void extractAttributeInfo(HttpServletRequest request, Map<String, Object> logData) {
+        // 문서 관련 정보
         Object docId = request.getAttribute("document_id");
         if (docId != null) {
             logData.put("document_id", docId);
@@ -146,5 +202,46 @@ public class LoggingInterceptor implements HandlerInterceptor {
         if (docOwner != null) {
             logData.put("document_owner", docOwner);
         }
+
+        Object docHash = request.getAttribute("document_hash");
+        if (docHash != null) {
+            logData.put("document_hash", docHash);
+        }
+
+        // 에러 리포트 관련 정보
+        Object errorReportId = request.getAttribute("error_report_id");
+        if (errorReportId != null) {
+            logData.put("error_report_id", errorReportId);
+        }
+
+        Object errorSeverity = request.getAttribute("error_severity");
+        if (errorSeverity != null) {
+            logData.put("error_severity", errorSeverity);
+        }
+
+        Object errorAction = request.getAttribute("error_report_action");
+        if (errorAction != null) {
+            logData.put("error_report_action", errorAction);
+        }
+
+        Object errorMessage = request.getAttribute("error_message");
+        if (errorMessage != null) {
+            logData.put("error_message", errorMessage);
+        }
+
+        Object errorCode = request.getAttribute("error_code");
+        if (errorCode != null) {
+            logData.put("error_code", errorCode);
+        }
+
+        Object resultCount = request.getAttribute("result_count");
+        if (resultCount != null) {
+            logData.put("result_count", resultCount);
+        }
+
+        // 기본 필드 설정 (누락 방지)
+        logData.putIfAbsent("document_classification", null);
+        logData.putIfAbsent("document_id", null);
+        logData.putIfAbsent("document_owner", null);
     }
 }
