@@ -53,28 +53,28 @@ public class DocumentController {
             HttpServletRequest servletRequest
     ) throws IOException {
 
-        // DTO에서 꺼내기
+        // ✅ DTO에서 꺼내기
         MultipartFile file = request.getFile();
         String title = request.getTitle();
         String content = request.getContent();
         Long categoryTypeId = request.getCategoryTypeId();
         Long readRoleId = request.getReadRoleId();
 
-        // 현재 사용자 직급 레벨 가져오기
+        // ✅ 현재 사용자 직급 레벨 가져오기
         int userLevel = userDetails.getRoleId();
 
-        // 업로드 대상 읽기 권한 Role 불러오기
+        // ✅ 업로드 대상 읽기 권한 Role 불러오기
         Role readRole = roleRepository.findById(readRoleId)
                 .orElseThrow(() -> new RuntimeException("권한 정보가 없습니다."));
 
         int targetRoleLevel = readRole.getName().getLevel();
 
-        // 직급 비교
+        // ✅ 직급 비교: 내 레벨보다 높은 직급이면 차단!
         if (targetRoleLevel > userLevel) {
             throw new PermissionDeniedException("내 직급보다 높은 접근 권한은 설정할 수 없습니다!");
         }
 
-        // 통과 시 서비스 호출 (서비스에 title, content 추가!)
+        // ✅ 통과 시 서비스 호출 (title, content 포함)
         Document saved = documentService.uploadDocument(
                 file,
                 title,
@@ -85,14 +85,17 @@ public class DocumentController {
                 userDetails.getRoleName()
         );
 
-        // 성공 로그
-        Map<String, Object> logData = logBuilder.buildBaseLog(servletRequest,
-                SecurityContextHolder.getContext().getAuthentication());
+        // ✅ 로그 빌더로 기록
+        Map<String, Object> logData = logBuilder.buildBaseLog(
+                servletRequest,
+                SecurityContextHolder.getContext().getAuthentication()
+        );
         logData.put("access_result", "SUCCESS");
         logData.put("response_status", 200);
         logData.put("action_type", "CREATE");
         logData.put("document_id", saved.getId());
         logData.put("document_owner", saved.getAuthor());
+
         logSender.sendLog(logData);
 
         return ResponseEntity.ok(saved);

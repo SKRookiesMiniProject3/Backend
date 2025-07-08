@@ -40,6 +40,9 @@ public class Document {
     @Column(nullable = false)
     private String filePath;   // UUID 기반 저장 경로 (해시)
 
+    @Column(name = "file_path_nfs", nullable = false)
+    private String filePathNfs;  // nfs에 저장한 파일 물리 경로
+
     @Column(nullable = false)
     private Long fileSize;     // 파일 크기 (Byte)
 
