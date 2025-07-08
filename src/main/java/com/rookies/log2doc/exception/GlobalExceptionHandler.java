@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.client.RestClient;
 import jakarta.validation.ConstraintViolationException;
 
 
@@ -28,6 +28,8 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
+
+    private final RestClient restClient = RestClient.create();
 
     private void sendLogToFlask(HttpServletRequest request, String errorMessage, String accessResult, String actionType) {
         Map<String, Object> logData = new HashMap<>();
@@ -53,8 +55,12 @@ public class GlobalExceptionHandler {
 
         log.info("📡 Flask로 보낼 로그 데이터: {}", logData);
 
-        RestTemplate restTemplate = new RestTemplate();
-        restTemplate.postForEntity("http://flask-server/logs", logData, String.class);
+        // ✅ RestClient 사용
+        restClient.post()
+                .uri("http://flask-server/logs")
+                .body(logData)
+                .retrieve()
+                .body(String.class);
     }
 
     @ExceptionHandler(TokenRefreshException.class)
