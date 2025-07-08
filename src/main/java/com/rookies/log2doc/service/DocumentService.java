@@ -59,22 +59,28 @@ public class DocumentService {
         String uuid = UUID.randomUUID().toString();
         String storedFileName = uuid + extension;
 
-        // ✅ NFS 경로 설정 (로컬 경로 -> 배포할 때 바꿀 예정, properties 뺄 것)
-        String nfsPath = "../uploads/" + storedFileName;
+        // ✅ [로컬용] 저장 경로
+        Path uploadDir = Paths.get("../uploads"); // 상대 경로 (로컬)
 
-        // ✅ NFS 경로에 디렉토리 생성 & 파일 저장
-        Path uploadDir = Paths.get("/mnt/nfs/reports");
+        // ✅ [NFS용] 저장 경로 (나중에 배포할 때 사용)
+        // Path uploadDir = Paths.get("/mnt/nfs/reports"); // NFS 경로 (주석 해제 시 사용)
+
+        // ✅ 경로 생성
         Files.createDirectories(uploadDir);
+
+        // ✅ 실제 파일 저장
         Path savePath = uploadDir.resolve(storedFileName);
         Files.copy(file.getInputStream(), savePath, StandardCopyOption.REPLACE_EXISTING);
+
+        log.info("✅ 파일 저장 경로: {}", savePath.toAbsolutePath());
 
         // ✅ 문서 엔티티 생성
         Document doc = new Document();
         doc.setTitle(title);
         doc.setContent(content);
         doc.setFileName(originalFileName);
-        doc.setFilePath(uuid);           // 👉 URL 해시 (경로로 쓰면 안됨!)
-        doc.setFilePathNfs(nfsPath);     // ✅ 실제 물리 경로 통째로 기록!
+        doc.setFilePath(uuid);           // 해시
+        doc.setFilePathNfs(savePath.toString()); // 실제 경로 참고용 (필요 없다면 제거 가능)
         doc.setMimeType(file.getContentType());
         doc.setFileSize(file.getSize());
         doc.setCreatedAt(LocalDateTime.now());
@@ -82,7 +88,7 @@ public class DocumentService {
         doc.setAuthor(String.valueOf(userId));
         doc.setCreatedRole(userRoleName);
 
-        // ✅ 카테고리 연관관계 FK 가져오기
+        // ✅ 카테고리 FK
         CategoryType categoryType = categoryTypeRepository.findById(categoryTypeId)
                 .orElseThrow(() -> new RuntimeException("카테고리 타입 없음"));
 

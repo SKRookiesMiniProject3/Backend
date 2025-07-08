@@ -24,6 +24,8 @@ public class ErrorReport {
 
     private Boolean resolved = false;
 
+    private String errorCode;
+
     @CreatedDate
     private LocalDateTime createdAt;
 

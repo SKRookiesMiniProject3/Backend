@@ -33,6 +33,12 @@ public class ErrorReportController {
         return errorReportService.getUnresolvedErrors();
     }
 
+    // 메세지 입력
+    @PostMapping
+    public ErrorReportDTO createMessage(@RequestBody ErrorReportDTO dto) {
+        return errorReportService.createError(dto);
+    }
+
     @PostMapping
     public ErrorReportDTO createError(@RequestBody ErrorReportDTO dto) {
         return errorReportService.createError(dto);

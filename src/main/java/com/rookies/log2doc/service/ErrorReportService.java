@@ -37,14 +37,27 @@ public class ErrorReportService {
                 .collect(Collectors.toList());
     }
 
-    // flask에 보낼 메서드
+    // 에러 메세지 입력
     public ErrorReportDTO createError(ErrorReportDTO dto) {
+        // 1️⃣ DB에 저장
         ErrorReport entity = ErrorReport.builder()
                 .message(dto.getMessage())
+                .errorCode(dto.getErrorCode())
                 .resolved(dto.getResolved() != null ? dto.getResolved() : false)
                 .build();
+
         ErrorReport saved = errorReportRepository.save(entity);
+
+        // 2️⃣ Flask로 전송 (필요하다면!)
+        sendToFlask(saved);
+
         return toDTO(saved);
+    }
+
+    private void sendToFlask(ErrorReport errorReport) {
+        // TODO: 여기에 Flask 연동 로직 작성
+        System.out.println("Flask로 보낼 데이터: " + errorReport.getMessage());
+        // RestTemplate 등으로 Flask API 호출
     }
 
     private ErrorReportDTO toDTO(ErrorReport entity) {
