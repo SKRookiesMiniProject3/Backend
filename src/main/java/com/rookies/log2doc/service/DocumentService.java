@@ -34,39 +34,8 @@ public class DocumentService {
 
     private final DocumentRepository documentRepository;
     private final RoleRepository roleRepository;
-    private final CategoryTypeRepository categoryTypeRepository;        // 추가
-    private final DocumentCategoryRepository documentCategoryRepository; // 추가
-
-    /**
-     * 텍스트 문서 생성
-     */
-    @Transactional
-    public Document createTextDocument(DocumentCreateRequest req, Long userId, String userRoleName) {
-        Role readRole = getRoleById(req.getReadRoleId(), "읽기");
-
-        Document doc = new Document();
-        doc.setTitle(req.getTitle());
-        doc.setContent(req.getContent());
-        doc.setReadRole(readRole);
-        doc.setCreatedAt(LocalDateTime.now());
-        doc.setAuthor(String.valueOf(userId));
-        doc.setCreatedRole(userRoleName);         // 작성자 저장
-
-        // ✅ FK로 CategoryType 가져오기
-        CategoryType categoryType = categoryTypeRepository.findById(req.getCategoryTypeId())
-                .orElseThrow(() -> new RuntimeException("카테고리 타입 없음"));
-
-        // ✅ Document 저장
-        documentRepository.save(doc);
-
-        // ✅ DocumentCategory 매핑
-        DocumentCategory mapping = new DocumentCategory();
-        mapping.setDocument(doc);
-        mapping.setCategoryType(categoryType);
-        documentCategoryRepository.save(mapping);
-
-        return doc;
-    }
+    private final CategoryTypeRepository categoryTypeRepository;
+    private final DocumentCategoryRepository documentCategoryRepository;
 
     /**
      * 파일 업로드 후 문서 생성
@@ -74,9 +43,12 @@ public class DocumentService {
     @Transactional
     public Document uploadDocument(
             MultipartFile file,
+            String title,
+            String content,
             Long categoryTypeId,
             Long readRoleId,
-            Long userId, String userRoleName
+            Long userId,
+            String userRoleName
     ) throws IOException {
 
         Role readRole = getRoleById(readRoleId, "읽기");
@@ -91,7 +63,10 @@ public class DocumentService {
         Path savePath = uploadDir.resolve(storedFileName);
         Files.copy(file.getInputStream(), savePath, StandardCopyOption.REPLACE_EXISTING);
 
+        // 문서 엔티티 생성
         Document doc = new Document();
+        doc.setTitle(title);
+        doc.setContent(content);
         doc.setFileName(originalFileName);
         doc.setFilePath(uuid);
         doc.setMimeType(file.getContentType());
@@ -101,12 +76,14 @@ public class DocumentService {
         doc.setAuthor(String.valueOf(userId));
         doc.setCreatedRole(userRoleName);
 
-        // ✅ FK 가져오기
+        // 카테고리 연관관계 FK 가져오기
         CategoryType categoryType = categoryTypeRepository.findById(categoryTypeId)
                 .orElseThrow(() -> new RuntimeException("카테고리 타입 없음"));
 
+        // 문서 저장
         documentRepository.save(doc);
 
+        // 카테고리 매핑 저장
         DocumentCategory mapping = new DocumentCategory();
         mapping.setDocument(doc);
         mapping.setCategoryType(categoryType);

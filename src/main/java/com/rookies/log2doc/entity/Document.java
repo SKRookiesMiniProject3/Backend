@@ -21,7 +21,7 @@ public class Document {
     /**
      * 문서 제목
      */
-    @Column(nullable = true)
+    @Column(nullable = false)
     private String title;
 
     /**
@@ -34,22 +34,28 @@ public class Document {
     /**
      * 파일 업로드 관련 정보
      */
+    @Column(nullable = false)
     private String fileName;   // 원본 파일명
+
+    @Column(nullable = false)
     private String filePath;   // UUID 기반 저장 경로 (해시)
+
+    @Column(nullable = false)
     private Long fileSize;     // 파일 크기 (Byte)
+
+    @Column(nullable = false)
     private String mimeType;   // MIME 타입
 
     /**
-     * 카테고리 FK 필드 제거됨
-     * @OneToMany 연관관계로 대체
+     * 카테고리 FK: @OneToMany 연관관계로 DocumentCategory 테이블에서 관리됨
      */
     @OneToMany(mappedBy = "document", cascade = CascadeType.ALL, orphanRemoval = true)
-    @com.fasterxml.jackson.annotation.JsonManagedReference // 🔑 JSON 직렬화의 시작점!
+    @com.fasterxml.jackson.annotation.JsonManagedReference
     private List<DocumentCategory> documentCategories = new ArrayList<>();
 
     /**
-     * 문서 status 필드 추가
-     * */
+     * 문서 status
+     */
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private DocumentStatus status;
@@ -57,7 +63,7 @@ public class Document {
     /**
      * 작성자 ID 또는 이름
      */
-    @Column(nullable = true)
+    @Column(nullable = false)
     private String author;
 
     /**
@@ -76,7 +82,7 @@ public class Document {
      * 접근 권한 정보
      */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "read_role_id")
+    @JoinColumn(name = "read_role_id", nullable = false)
     private Role readRole;
 
     @PrePersist
