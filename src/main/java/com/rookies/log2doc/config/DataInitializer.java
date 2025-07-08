@@ -201,9 +201,12 @@ public class DataInitializer implements CommandLineRunner {
         log.info("카테고리 타입 초기화 중...");
 
         String[][] defaultCategories = {
-                {"Error Report", "오류 보고 카테고리"},
-                {"Proposal", "제안 카테고리"},
-                {"Improvement", "개선 요청 카테고리"}
+                {"A", "Category A"},
+                {"B", "Category B"},
+                {"C", "Category C"},
+                {"D", "Category D"},
+                {"E", "Category E"},
+                {"F", "Category F"},
         };
 
         for (String[] cat : defaultCategories) {
