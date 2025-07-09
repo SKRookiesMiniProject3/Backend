@@ -10,6 +10,7 @@ import com.rookies.log2doc.security.services.UserDetailsImpl;
 import com.rookies.log2doc.service.DocumentService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -18,6 +19,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+
 
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -38,12 +40,15 @@ public class DocumentController {
     /**
      * 파일 업로드
      */
+
     @PostMapping("/upload")
+
     public ResponseEntity<Document> uploadDocument(
             @Valid @ModelAttribute DocumentCreateRequest request,
             @AuthenticationPrincipal UserDetailsImpl userDetails,
             HttpServletRequest servletRequest
     ) throws IOException {
+        
 
         // ✅ DTO에서 데이터 추출
         MultipartFile file = request.getFile();
@@ -111,7 +116,7 @@ public class DocumentController {
      * 단일 문서 조회 (해시 경로 기준)
      * - 권한 체크 포함 + DTO 변환
      */
-    @GetMapping("/hash/{hash}")
+    @GetMapping("/files/{hash}")
     public ResponseEntity<DocumentResponseDTO> getDocumentByHash(
             @PathVariable String hash,
             @AuthenticationPrincipal UserDetailsImpl userDetails,

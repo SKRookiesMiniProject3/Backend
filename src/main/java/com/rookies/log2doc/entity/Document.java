@@ -49,6 +49,10 @@ public class Document {
     @Column(nullable = false)
     private String mimeType;   // MIME 타입
 
+    @Column(name = "is_deleted", nullable = false)
+    private Boolean isDeleted = false; // 기본값 false
+
+
     /**
      * 카테고리 FK: @OneToMany 연관관계로 DocumentCategory 테이블에서 관리됨
      */
