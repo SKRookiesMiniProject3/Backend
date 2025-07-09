@@ -31,5 +31,10 @@ build/
 
 ### VS Code ###
 .vscode/
-/data
-./error.txt
+
+### DB ###
+data
+
+### flask ###
+flask/report/
+flask/.env
