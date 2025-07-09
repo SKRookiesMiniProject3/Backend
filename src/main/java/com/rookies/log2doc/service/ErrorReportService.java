@@ -92,14 +92,6 @@ public class ErrorReportService {
                 .collect(Collectors.toList());
     }
 
-    // ✅ 심각도 높은 리포트 조회 (공격 + 완료/진행중)
-    public List<ErrorReportDTO> getCriticalReports() {
-        return errorReportRepository.findCriticalReports()
-                .stream()
-                .map(this::toDTO)
-                .collect(Collectors.toList());
-    }
-
     // ========================================
     // 단일 조회
     // ========================================
@@ -110,22 +102,6 @@ public class ErrorReportService {
                 .orElseThrow(() -> new RuntimeException("에러 리포트를 찾을 수 없습니다."));
 
         return toDTO(errorReport);
-    }
-
-    // ✅ 파일 경로로 리포트 조회
-    public ErrorReportDTO getReportByPath(String reportPath) {
-        ErrorReport errorReport = errorReportRepository.findByReportPath(reportPath)
-                .orElseThrow(() -> new RuntimeException("해당 경로의 리포트를 찾을 수 없습니다."));
-
-        return toDTO(errorReport);
-    }
-
-    // ✅ 제목으로 검색
-    public List<ErrorReportDTO> searchReportsByTitle(String title) {
-        return errorReportRepository.findByReportTitleContaining(title)
-                .stream()
-                .map(this::toDTO)
-                .collect(Collectors.toList());
     }
 
     // ========================================
@@ -169,7 +145,7 @@ public class ErrorReportService {
     }
 
     // ========================================
-    // 필터링 조회 메서드들
+    // 필터링 조회 메서드
     // ========================================
 
     // ✅ 특정 기간의 리포트 조회
@@ -180,51 +156,140 @@ public class ErrorReportService {
                 .collect(Collectors.toList());
     }
 
-    // ✅ 특정 상태와 카테고리 조합 조회
-    public List<ErrorReportDTO> getReportsByStatusAndCategory(String status, String category) {
+    // ========================================
+    // 수정 메서드들 (컨트롤러에서 사용)
+    // ========================================
+
+    // ✅ 리포트 코멘트 수정
+    @Transactional
+    public ErrorReportDTO updateComment(Long id, String comment) {
+        ErrorReport errorReport = errorReportRepository.findByIdAndIsDeletedFalse(id)
+                .orElseThrow(() -> new RuntimeException("에러 리포트를 찾을 수 없습니다."));
+
+        errorReport.setReportComment(comment);
+        ErrorReport saved = errorReportRepository.save(errorReport);
+        log.info("에러 리포트 코멘트 수정 완료 - ID: {}", id);
+
+        return toDTO(saved);
+    }
+
+    // ✅ 리포트 상태 수정 (컨트롤러에서 필요한 범용 메서드)
+    @Transactional
+    public ErrorReportDTO updateReportStatus(Long id, String status) {
+        ErrorReport errorReport = errorReportRepository.findByIdAndIsDeletedFalse(id)
+                .orElseThrow(() -> new RuntimeException("에러 리포트를 찾을 수 없습니다."));
+
+        ErrorReport.ReportStatus reportStatus;
         try {
-            ErrorReport.ReportStatus reportStatus = ErrorReport.ReportStatus.valueOf(status);
-            ErrorReport.ReportCategory reportCategory = ErrorReport.ReportCategory.valueOf(category);
-
-            return errorReportRepository.findByStatusAndCategory(reportStatus, reportCategory)
-                    .stream()
-                    .map(this::toDTO)
-                    .collect(Collectors.toList());
+            reportStatus = ErrorReport.ReportStatus.valueOf(status);
         } catch (IllegalArgumentException e) {
-            throw new RuntimeException("잘못된 상태 또는 카테고리입니다: " + status + ", " + category);
+            throw new RuntimeException("유효하지 않은 상태값입니다: " + status);
         }
+
+        errorReport.setReportStatus(reportStatus);
+        ErrorReport saved = errorReportRepository.save(errorReport);
+
+        // 상태별 로그 출력
+        switch (reportStatus) {
+            case NOT_STARTED:
+                log.info("🔄 리포트 상태 리셋 - ID: {}", id);
+                break;
+            case IN_PROGRESS:
+                if (saved.isAttackCategory()) {
+                    log.warn("🚨 공격 리포트 처리 시작! - ID: {}", id);
+                } else {
+                    log.info("▶️ 리포트 처리 시작 - ID: {}", id);
+                }
+                break;
+            case COMPLETED:
+                if (saved.isAttackCategory()) {
+                    log.warn("✅ 공격 리포트 처리 완료! - ID: {}", id);
+                } else {
+                    log.info("✅ 리포트 처리 완료 - ID: {}", id);
+                }
+                break;
+        }
+
+        return toDTO(saved);
     }
 
-    // ========================================
-    // 대시보드용 요약 메서드들
-    // ========================================
+    /**
+     * 상태를 NOT_STARTED로 변경 (리셋)
+     */
+    @Transactional
+    public ErrorReportDTO setStatusNotStarted(Long id) {
+        ErrorReport errorReport = errorReportRepository.findByIdAndIsDeletedFalse(id)
+                .orElseThrow(() -> new RuntimeException("에러 리포트를 찾을 수 없습니다."));
 
-    // ✅ 대시보드 요약 정보
-    public Map<String, Object> getDashboardSummary() {
-        return Map.of(
-                "totalReports", getTotalReportCount(),
-                "todayReports", getTodayReportCount(),
-                "attackReports", getAttackReports().size(),
-                "inProgressReports", getInProgressReports().size(),
-                "completedReports", getCompletedReports().size(),
-                "recentAttackCount", getRecentAttackCount(7), // 최근 7일
-                "categoryStats", getCategoryStatistics(),
-                "statusStats", getReportStatistics()
-        );
+        errorReport.setReportStatus(ErrorReport.ReportStatus.NOT_STARTED);
+        ErrorReport saved = errorReportRepository.save(errorReport);
+
+        log.info("🔄 리포트 상태 리셋 - ID: {}", id);
+        return toDTO(saved);
     }
 
-    // ✅ 보안 대시보드 요약 (공격 관련만)
-    public Map<String, Object> getSecurityDashboardSummary() {
-        List<ErrorReportDTO> attackReports = getAttackReports();
-        List<ErrorReportDTO> criticalReports = getCriticalReports();
+    /**
+     * 상태를 IN_PROGRESS로 변경 (시작)
+     */
+    @Transactional
+    public ErrorReportDTO setStatusInProgress(Long id) {
+        ErrorReport errorReport = errorReportRepository.findByIdAndIsDeletedFalse(id)
+                .orElseThrow(() -> new RuntimeException("에러 리포트를 찾을 수 없습니다."));
 
-        return Map.of(
-                "totalAttackReports", attackReports.size(),
-                "criticalReports", criticalReports.size(),
-                "recentAttacks7days", getRecentAttackCount(7),
-                "recentAttacks24hours", getRecentAttackCount(1),
-                "latestAttackReports", attackReports.stream().limit(10).collect(Collectors.toList())
-        );
+        errorReport.setReportStatus(ErrorReport.ReportStatus.IN_PROGRESS);
+        ErrorReport saved = errorReportRepository.save(errorReport);
+
+        // 공격 카테고리면 특별 로그
+        if (saved.isAttackCategory()) {
+            log.warn("🚨 공격 리포트 처리 시작! - ID: {}", id);
+        } else {
+            log.info("▶️ 리포트 처리 시작 - ID: {}", id);
+        }
+
+        return toDTO(saved);
+    }
+
+    /**
+     * 상태를 COMPLETED로 변경 (완료)
+     */
+    @Transactional
+    public ErrorReportDTO setStatusCompleted(Long id, String completionComment) {
+        ErrorReport errorReport = errorReportRepository.findByIdAndIsDeletedFalse(id)
+                .orElseThrow(() -> new RuntimeException("에러 리포트를 찾을 수 없습니다."));
+
+        errorReport.setReportStatus(ErrorReport.ReportStatus.COMPLETED);
+
+        // 완료 코멘트가 있으면 추가
+        if (completionComment != null && !completionComment.trim().isEmpty()) {
+            String existingComment = errorReport.getReportComment();
+            String newComment = existingComment != null ?
+                    existingComment + "\n[완료] " + completionComment :
+                    "[완료] " + completionComment;
+            errorReport.setReportComment(newComment);
+        }
+
+        ErrorReport saved = errorReportRepository.save(errorReport);
+
+        // 공격 카테고리면 특별 로그
+        if (saved.isAttackCategory()) {
+            log.warn("✅ 공격 리포트 처리 완료! - ID: {}", id);
+        } else {
+            log.info("✅ 리포트 처리 완료 - ID: {}", id);
+        }
+
+        return toDTO(saved);
+    }
+
+    // ✅ 에러 리포트 소프트 삭제
+    @Transactional
+    public void deleteReport(Long id) {
+        ErrorReport errorReport = errorReportRepository.findByIdAndIsDeletedFalse(id)
+                .orElseThrow(() -> new RuntimeException("에러 리포트를 찾을 수 없습니다."));
+
+        errorReport.setIsDeleted(true);
+        errorReport.setDeletedDt(LocalDateTime.now());
+        errorReportRepository.save(errorReport);
+        log.info("에러 리포트 삭제 완료 - ID: {}", id);
     }
 
     // ========================================

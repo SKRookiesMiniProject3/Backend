@@ -31,60 +31,6 @@ public class ErrorReportController {
     // 대시보드/통계 API
     // ========================================
 
-    // ✅ 대시보드 요약 정보
-    @GetMapping("/dashboard/summary")
-    @Operation(summary = "대시보드 요약 정보", description = "전체 리포트 요약 정보를 조회합니다.")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> getDashboardSummary(HttpServletRequest request) {
-        try {
-            Map<String, Object> summary = errorReportService.getDashboardSummary();
-
-            request.setAttribute("error_report_action", "dashboard_summary");
-
-            return ResponseEntity.ok(ApiResponse.<Map<String, Object>>builder()
-                    .success(true)
-                    .message("대시보드 요약 정보 조회 성공")
-                    .data(summary)
-                    .build());
-
-        } catch (Exception e) {
-            log.error("대시보드 요약 정보 조회 실패", e);
-
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ApiResponse.<Map<String, Object>>builder()
-                            .success(false)
-                            .message("대시보드 요약 정보 조회 중 오류가 발생했습니다: " + e.getMessage())
-                            .build());
-        }
-    }
-
-    // ✅ 보안 대시보드 요약 (공격 관련만)
-    @GetMapping("/dashboard/security")
-    @Operation(summary = "보안 대시보드 요약", description = "공격 탐지 관련 요약 정보를 조회합니다.")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> getSecurityDashboardSummary(HttpServletRequest request) {
-        try {
-            Map<String, Object> securitySummary = errorReportService.getSecurityDashboardSummary();
-
-            request.setAttribute("error_report_action", "security_dashboard");
-
-            log.info("🛡️ 보안 대시보드 조회: {}", securitySummary);
-
-            return ResponseEntity.ok(ApiResponse.<Map<String, Object>>builder()
-                    .success(true)
-                    .message("보안 대시보드 요약 정보 조회 성공")
-                    .data(securitySummary)
-                    .build());
-
-        } catch (Exception e) {
-            log.error("보안 대시보드 요약 정보 조회 실패", e);
-
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ApiResponse.<Map<String, Object>>builder()
-                            .success(false)
-                            .message("보안 대시보드 요약 정보 조회 중 오류가 발생했습니다: " + e.getMessage())
-                            .build());
-        }
-    }
-
     // ✅ 일별 에러 카운트
     @GetMapping("/analytics/daily-count")
     @Operation(summary = "일별 에러 카운트 조회", description = "날짜별 에러 발생 개수를 조회합니다.")
@@ -273,38 +219,9 @@ public class ErrorReportController {
         return ResponseEntity.ok(reports);
     }
 
-    // ✅ 심각도 높은 리포트 조회 (보안 대시보드용)
-    @GetMapping("/list/critical")
-    @Operation(summary = "심각도 높은 리포트 조회", description = "공격 카테고리의 진행중/완료 리포트를 조회합니다.")
-    public ResponseEntity<List<ErrorReportDTO>> getCriticalReports(HttpServletRequest request) {
-        List<ErrorReportDTO> reports = errorReportService.getCriticalReports();
-
-        request.setAttribute("error_report_action", "critical_reports");
-        request.setAttribute("result_count", reports.size());
-
-        log.warn("🚨 심각도 높은 리포트 조회 요청 - 총 {} 건", reports.size());
-
-        return ResponseEntity.ok(reports);
-    }
-
     // ========================================
     // 검색/필터 API
     // ========================================
-
-    // ✅ 제목으로 검색
-    @GetMapping("/search")
-    @Operation(summary = "리포트 제목 검색", description = "제목으로 에러 리포트를 검색합니다.")
-    public ResponseEntity<List<ErrorReportDTO>> searchReportsByTitle(
-            @RequestParam String title,
-            HttpServletRequest request) {
-        List<ErrorReportDTO> reports = errorReportService.searchReportsByTitle(title);
-
-        request.setAttribute("error_report_action", "search_by_title");
-        request.setAttribute("search_keyword", title);
-        request.setAttribute("result_count", reports.size());
-
-        return ResponseEntity.ok(reports);
-    }
 
     // ✅ 기간별 조회
     @GetMapping("/list/by-date-range")
@@ -323,64 +240,9 @@ public class ErrorReportController {
         return ResponseEntity.ok(reports);
     }
 
-    // ✅ 상태와 카테고리 조합 조회
-    @GetMapping("/list/by-status-category")
-    @Operation(summary = "상태-카테고리 조합 조회", description = "특정 상태와 카테고리 조합으로 리포트를 조회합니다.")
-    public ResponseEntity<List<ErrorReportDTO>> getReportsByStatusAndCategory(
-            @RequestParam String status,
-            @RequestParam String category,
-            HttpServletRequest request) {
-        try {
-            List<ErrorReportDTO> reports = errorReportService.getReportsByStatusAndCategory(status, category);
-
-            request.setAttribute("error_report_action", "status_category_query");
-            request.setAttribute("filter_status", status);
-            request.setAttribute("filter_category", category);
-            request.setAttribute("result_count", reports.size());
-
-            return ResponseEntity.ok(reports);
-
-        } catch (RuntimeException e) {
-            request.setAttribute("error_report_action", "status_category_query_failed");
-            request.setAttribute("error_message", e.getMessage());
-
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(List.of());
-        }
-    }
-
     // ========================================
     // 단일 조회 API
     // ========================================
-
-    // ✅ 파일 경로로 리포트 조회
-    @GetMapping("/by-path")
-    @Operation(summary = "파일 경로로 리포트 조회", description = "리포트 파일 경로로 에러 리포트를 조회합니다.")
-    public ResponseEntity<ApiResponse<ErrorReportDTO>> getReportByPath(
-            @RequestParam String reportPath,
-            HttpServletRequest request) {
-        try {
-            ErrorReportDTO report = errorReportService.getReportByPath(reportPath);
-
-            request.setAttribute("error_report_action", "query_by_path");
-            request.setAttribute("report_path", reportPath);
-
-            return ResponseEntity.ok(ApiResponse.<ErrorReportDTO>builder()
-                    .success(true)
-                    .message("파일 경로로 리포트 조회 성공")
-                    .data(report)
-                    .build());
-
-        } catch (RuntimeException e) {
-            request.setAttribute("error_report_action", "query_by_path_failed");
-            request.setAttribute("error_message", e.getMessage());
-
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(ApiResponse.<ErrorReportDTO>builder()
-                            .success(false)
-                            .message("해당 경로의 리포트를 찾을 수 없습니다.")
-                            .build());
-        }
-    }
 
     // ✅ 에러 리포트 상세 조회 (ID 기준)
     @GetMapping("/{id}")
@@ -414,4 +276,187 @@ public class ErrorReportController {
                             .build());
         }
     }
+
+    // 추가
+    // ✅ 에러 리포트 코멘트 수정
+    @PatchMapping("/{id}/comment")
+    @Operation(summary = "에러 리포트 코멘트 수정", description = "에러 리포트의 코멘트를 수정합니다.")
+    public ResponseEntity<ApiResponse<ErrorReportDTO>> updateComment(
+            @PathVariable Long id,
+            @RequestParam String comment,
+            HttpServletRequest request) {
+        try {
+            ErrorReportDTO updated = errorReportService.updateComment(id, comment);
+
+            request.setAttribute("error_report_id", updated.getId());
+            request.setAttribute("error_report_action", "comment_update");
+            request.setAttribute("comment_length", comment.length());
+
+            return ResponseEntity.ok(ApiResponse.<ErrorReportDTO>builder()
+                    .success(true)
+                    .message("에러 리포트 코멘트가 수정되었습니다.")
+                    .data(updated)
+                    .build());
+
+        } catch (RuntimeException e) {
+            request.setAttribute("error_report_id", id);
+            request.setAttribute("error_report_action", "comment_update_failed");
+            request.setAttribute("error_message", e.getMessage());
+
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResponse.<ErrorReportDTO>builder()
+                            .success(false)
+                            .message("에러 리포트를 찾을 수 없습니다.")
+                            .build());
+        }
+    }
+
+    // ✅ 상태를 "시작 안함"으로 변경
+    @PatchMapping("/{id}/status/not-started")
+    @Operation(summary = "리포트 상태를 '시작 안함'으로 변경", description = "관리자 페이지에서 리포트를 초기 상태로 되돌립니다.")
+    public ResponseEntity<ApiResponse<ErrorReportDTO>> setStatusNotStarted(
+            @PathVariable Long id,
+            HttpServletRequest request) {
+        try {
+            ErrorReportDTO updated = errorReportService.updateReportStatus(id, "NOT_STARTED");
+
+            request.setAttribute("error_report_id", updated.getId());
+            request.setAttribute("error_report_action", "status_reset");
+            request.setAttribute("new_status", "NOT_STARTED");
+
+            log.info("🔄 리포트 상태 리셋 - ID: {}", id);
+
+            return ResponseEntity.ok(ApiResponse.<ErrorReportDTO>builder()
+                    .success(true)
+                    .message("리포트가 '시작 안함' 상태로 변경되었습니다.")
+                    .data(updated)
+                    .build());
+
+        } catch (RuntimeException e) {
+            request.setAttribute("error_report_id", id);
+            request.setAttribute("error_report_action", "status_reset_failed");
+            request.setAttribute("error_message", e.getMessage());
+
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResponse.<ErrorReportDTO>builder()
+                            .success(false)
+                            .message("에러 리포트를 찾을 수 없습니다.")
+                            .build());
+        }
+    }
+
+    // ✅ 상태를 "진행중"으로 변경
+    @PatchMapping("/{id}/status/in-progress")
+    @Operation(summary = "리포트 상태를 '진행중'으로 변경", description = "관리자 페이지에서 리포트 처리를 시작합니다.")
+    public ResponseEntity<ApiResponse<ErrorReportDTO>> setStatusInProgress(
+            @PathVariable Long id,
+            HttpServletRequest request) {
+        try {
+            ErrorReportDTO updated = errorReportService.updateReportStatus(id, "IN_PROGRESS");
+
+            request.setAttribute("error_report_id", updated.getId());
+            request.setAttribute("error_report_action", "status_start");
+            request.setAttribute("new_status", "IN_PROGRESS");
+
+            // 공격 카테고리면 특별 로그
+            if ("ATTACK".equals(updated.getReportCategory())) {
+                log.warn("🚨 공격 리포트 처리 시작! - ID: {}", id);
+            } else {
+                log.info("▶️ 리포트 처리 시작 - ID: {}", id);
+            }
+
+            return ResponseEntity.ok(ApiResponse.<ErrorReportDTO>builder()
+                    .success(true)
+                    .message("리포트 처리가 시작되었습니다.")
+                    .data(updated)
+                    .build());
+
+        } catch (RuntimeException e) {
+            request.setAttribute("error_report_id", id);
+            request.setAttribute("error_report_action", "status_start_failed");
+            request.setAttribute("error_message", e.getMessage());
+
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResponse.<ErrorReportDTO>builder()
+                            .success(false)
+                            .message("에러 리포트를 찾을 수 없습니다.")
+                            .build());
+        }
+    }
+
+    // ✅ 상태를 "완료"로 변경
+    @PatchMapping("/{id}/status/completed")
+    @Operation(summary = "리포트 상태를 '완료'로 변경", description = "관리자 페이지에서 리포트 처리를 완료합니다.")
+    public ResponseEntity<ApiResponse<ErrorReportDTO>> setStatusCompleted(
+            @PathVariable Long id,
+            @RequestParam(required = false) String completionComment,
+            HttpServletRequest request) {
+        try {
+            ErrorReportDTO updated = errorReportService.updateReportStatus(id, "COMPLETED");
+
+            // 완료 코멘트가 있으면 추가
+            if (completionComment != null && !completionComment.trim().isEmpty()) {
+                updated = errorReportService.updateComment(id, completionComment);
+            }
+
+            request.setAttribute("error_report_id", updated.getId());
+            request.setAttribute("error_report_action", "status_complete");
+            request.setAttribute("new_status", "COMPLETED");
+
+            // 공격 카테고리면 특별 로그
+            if ("ATTACK".equals(updated.getReportCategory())) {
+                log.warn("✅ 공격 리포트 처리 완료! - ID: {}", id);
+            } else {
+                log.info("✅ 리포트 처리 완료 - ID: {}", id);
+            }
+
+            return ResponseEntity.ok(ApiResponse.<ErrorReportDTO>builder()
+                    .success(true)
+                    .message("리포트 처리가 완료되었습니다.")
+                    .data(updated)
+                    .build());
+
+        } catch (RuntimeException e) {
+            request.setAttribute("error_report_id", id);
+            request.setAttribute("error_report_action", "status_complete_failed");
+            request.setAttribute("error_message", e.getMessage());
+
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResponse.<ErrorReportDTO>builder()
+                            .success(false)
+                            .message("에러 리포트를 찾을 수 없습니다.")
+                            .build());
+        }
+    }
+
+    // ✅ 에러 리포트 삭제 (소프트 삭제)
+    @DeleteMapping("/{id}")
+    @Operation(summary = "에러 리포트 삭제", description = "에러 리포트를 삭제합니다 (소프트 삭제).")
+    public ResponseEntity<ApiResponse<Void>> deleteReport(
+            @PathVariable Long id,
+            HttpServletRequest request) {
+        try {
+            errorReportService.deleteReport(id);
+
+            request.setAttribute("error_report_id", id);
+            request.setAttribute("error_report_action", "delete");
+
+            return ResponseEntity.ok(ApiResponse.<Void>builder()
+                    .success(true)
+                    .message("에러 리포트가 삭제되었습니다.")
+                    .build());
+
+        } catch (RuntimeException e) {
+            request.setAttribute("error_report_id", id);
+            request.setAttribute("error_report_action", "delete_failed");
+            request.setAttribute("error_message", e.getMessage());
+
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResponse.<Void>builder()
+                            .success(false)
+                            .message("에러 리포트를 찾을 수 없습니다.")
+                            .build());
+        }
+    }
+
 }
