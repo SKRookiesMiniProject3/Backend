@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
@@ -14,7 +15,9 @@ import org.springframework.web.servlet.HandlerInterceptor;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Component
 @Slf4j
@@ -95,13 +98,17 @@ public class LoggingInterceptor implements HandlerInterceptor {
                 .collect(HashMap::new, (m, k) -> m.put(k, request.getHeader(k)), HashMap::putAll);
         logData.put("request_headers", headersMap);
 
-        // 사용자 정보
+        // 사용자 정보 (buildUnifiedLog 메서드 내부)
         if (auth != null && auth.isAuthenticated()) {
             logData.put("user_id", auth.getName());
-            logData.put("user_role", auth.getAuthorities().toString());
+            // ✅ 수정된 부분
+            List<String> roles = auth.getAuthorities().stream()
+                    .map(GrantedAuthority::getAuthority)
+                    .collect(Collectors.toList());
+            logData.put("user_role", roles);
         } else {
             logData.put("user_id", "anonymous");
-            logData.put("user_role", "UNKNOWN");
+            logData.put("user_role", Collections.singletonList("UNKNOWN"));
         }
 
         // 응답 상태 설정

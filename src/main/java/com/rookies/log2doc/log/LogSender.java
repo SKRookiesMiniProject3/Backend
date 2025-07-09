@@ -25,19 +25,19 @@ public class LogSender {
             // ✅ Flask가 요구하는 필드만 필터링
             Map<String, Object> filteredLogData = filterLogData(logData);
 
-            String json = objectMapper.writeValueAsString(filteredLogData);
-            log.info("📤 [TEST] Flask 전송용 JSON: {}", json);
-
-            // ✅ 필터링된 로그 확인
-            log.debug("📤 Flask 전송 로그: {}", filteredLogData);
-
-//            String response = restClient.post()
-//                    .uri("http://flask-server/logs")
-//                    .body(filteredLogData)
-//                    .retrieve()
-//                    .body(String.class);
+//            String json = objectMapper.writeValueAsString(filteredLogData);
+//            log.info("📤 [TEST] Flask 전송용 JSON: {}", json);
 //
-//            log.info("✅ Flask로 로그 전송 완료: {}", response);
+//            // ✅ 필터링된 로그 확인
+//            log.debug("📤 Flask 전송 로그: {}", filteredLogData);
+
+            String response = restClient.post()
+                    .uri("http://flask-server/logs")
+                    .body(filteredLogData)
+                    .retrieve()
+                    .body(String.class);
+
+            log.info("✅ Flask로 로그 전송 완료: {}", response);
 
         } catch (Exception e) {
             log.error("🚨 Flask 로그 전송 실패: {}", e.getMessage());
