@@ -3,12 +3,15 @@ package com.rookies.log2doc.log;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
@@ -33,13 +36,16 @@ public class LogBuilder {
                 .collect(HashMap::new, (m, k) -> m.put(k, request.getHeader(k)), HashMap::putAll);
         logData.put("request_headers", headersMap);
 
-        // 사용자 정보
+        // 사용자 정보 - user_role을 배열로 설정
         if (auth != null && auth.isAuthenticated()) {
             logData.put("user_id", auth.getName());
-            logData.put("user_role", auth.getAuthorities().toString());
+            List<String> roles = auth.getAuthorities().stream()
+                    .map(GrantedAuthority::getAuthority)
+                    .collect(Collectors.toList());
+            logData.put("user_role", roles);  // ✅ 이 부분이 중요!
         } else {
             logData.put("user_id", "anonymous");
-            logData.put("user_role", "UNKNOWN");
+            logData.put("user_role", Collections.singletonList("UNKNOWN"));
         }
 
         // 🟢 기본 보안 판별 값
@@ -60,5 +66,4 @@ public class LogBuilder {
 
         return logData;
     }
-
 }
