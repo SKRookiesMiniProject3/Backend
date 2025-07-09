@@ -8,6 +8,7 @@ import json
 from dotenv import load_dotenv
 import openai
 from pathlib import Path
+from db_manager import db_manager, init_database
 
 load_dotenv()
 
@@ -69,6 +70,15 @@ class SecurityAnalysisSystem:
             f.write(report_content)
         
         logger.info(f"간단 보고서 저장 완료: {report_path}")
+    
+        try:
+            report_id = db_manager.save_error_report(analysis, log_data, report_path)
+            if report_id:
+                logger.info(f"간단 보고서 DB 저장 완료: ID={report_id}")
+            else:
+                logger.warning("간단 보고서 DB 저장 실패")
+        except Exception as e:
+            logger.error(f"간단 보고서 DB 저장 중 오류: {e}")
         return report_path
     
     def analyze_log_with_llm(self, log_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -210,6 +220,15 @@ JSON 형식으로 응답해주세요.
             f.write(report_content)
         
         logger.info(f"보고서 저장 완료: {report_path}")
+        
+        try:
+            report_id = db_manager.save_error_report(analysis, log_data, report_path)
+            if report_id:
+                logger.info(f"보고서 DB 저장 완료: ID={report_id}")
+            else:
+                logger.warning("보고서 DB 저장 실패")
+        except Exception as e:
+            logger.error(f"보고서 DB 저장 중 오류: {e}")
         return report_path
     
     def _create_report_content(self, analysis: Dict[str, Any], log_data: Dict[str, Any]) -> str:
@@ -733,6 +752,13 @@ def internal_error(error):
     return jsonify({"error": "Internal server error"}), 500
 
 if __name__ == '__main__':
+    
+    try:
+        init_database()
+    except Exception as e:
+        logger.error(f"데이터베이스 초기화 실패: {e}")
+        exit(1)
+        
     port = int(os.environ.get('PORT', 5001))
     debug = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
     
