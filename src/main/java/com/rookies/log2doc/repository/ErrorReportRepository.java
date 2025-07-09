@@ -10,7 +10,15 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * ErrorReport Repository (조회 전용)
+ * AI가 생성한 데이터를 읽기만 함
+ */
 public interface ErrorReportRepository extends JpaRepository<ErrorReport, Long> {
+
+    // ========================================
+    // 기본 조회 메서드들
+    // ========================================
 
     // ✅ 일별 에러 카운트 (삭제되지 않은 것만)
     @Query("SELECT new com.rookies.log2doc.dto.ErrorCountPerDayDTO(" +
@@ -24,6 +32,21 @@ public interface ErrorReportRepository extends JpaRepository<ErrorReport, Long> 
     // ✅ 최신순 리스트 (삭제되지 않은 것만)
     List<ErrorReport> findByIsDeletedFalseOrderByCreatedDtDesc();
 
+    // ✅ 삭제되지 않은 리포트 중 ID로 조회
+    Optional<ErrorReport> findByIdAndIsDeletedFalse(Long id);
+
+    // ✅ 리포트 파일 경로로 조회
+    @Query("SELECT e FROM ErrorReport e WHERE e.isDeleted = false AND e.reportPath = :path")
+    Optional<ErrorReport> findByReportPath(@Param("path") String path);
+
+    // ✅ 제목으로 검색 (부분 일치)
+    @Query("SELECT e FROM ErrorReport e WHERE e.isDeleted = false AND e.reportTitle LIKE %:title% ORDER BY e.createdDt DESC")
+    List<ErrorReport> findByReportTitleContaining(@Param("title") String title);
+
+    // ========================================
+    // 상태별 조회 메서드들
+    // ========================================
+
     // ✅ 진행중인 리포트 조회
     @Query("SELECT e FROM ErrorReport e WHERE e.isDeleted = false AND e.reportStatus = 'IN_PROGRESS' ORDER BY e.createdDt DESC")
     List<ErrorReport> findInProgressReports();
@@ -36,20 +59,50 @@ public interface ErrorReportRepository extends JpaRepository<ErrorReport, Long> 
     @Query("SELECT e FROM ErrorReport e WHERE e.isDeleted = false AND e.reportStatus = 'NOT_STARTED' ORDER BY e.createdDt DESC")
     List<ErrorReport> findNotStartedReports();
 
-    // ✅ 특정 사용자가 원인인 에러 리포트 조회
-    @Query("SELECT e FROM ErrorReport e WHERE e.isDeleted = false AND e.errorSourceMember = :memberId ORDER BY e.createdDt DESC")
-    List<ErrorReport> findByErrorSourceMember(@Param("memberId") Long memberId);
+    // ========================================
+    // 카테고리별 조회 메서드들 (AI 분류 결과)
+    // ========================================
+
+    // ✅ 공격 탐지 리포트만 조회 (중요!)
+    @Query("SELECT e FROM ErrorReport e WHERE e.isDeleted = false AND e.reportCategory = 'ATTACK' ORDER BY e.createdDt DESC")
+    List<ErrorReport> findAttackReports();
+
+    // ✅ 정상 카테고리 리포트 조회
+    @Query("SELECT e FROM ErrorReport e WHERE e.isDeleted = false AND e.reportCategory = 'VALID' ORDER BY e.createdDt DESC")
+    List<ErrorReport> findValidReports();
+
+    // ✅ 비정상 카테고리 리포트 조회
+    @Query("SELECT e FROM ErrorReport e WHERE e.isDeleted = false AND e.reportCategory = 'INVALID' ORDER BY e.createdDt DESC")
+    List<ErrorReport> findInvalidReports();
+
+    // ✅ 심각도 높은 리포트 조회 (공격 + 진행중/완료)
+    @Query("SELECT e FROM ErrorReport e WHERE e.isDeleted = false AND e.reportCategory = 'ATTACK' AND e.reportStatus IN ('IN_PROGRESS', 'COMPLETED') ORDER BY e.createdDt DESC")
+    List<ErrorReport> findCriticalReports();
+
+    // ========================================
+    // 조합 조회 메서드들
+    // ========================================
+
+    // ✅ 특정 상태와 카테고리로 조회
+    @Query("SELECT e FROM ErrorReport e WHERE e.isDeleted = false AND e.reportStatus = :status AND e.reportCategory = :category ORDER BY e.createdDt DESC")
+    List<ErrorReport> findByStatusAndCategory(@Param("status") ErrorReport.ReportStatus status,
+                                              @Param("category") ErrorReport.ReportCategory category);
 
     // ✅ 특정 기간 내 에러 리포트 조회
     @Query("SELECT e FROM ErrorReport e WHERE e.isDeleted = false AND e.createdDt BETWEEN :startDate AND :endDate ORDER BY e.createdDt DESC")
     List<ErrorReport> findByCreatedDtBetween(@Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
 
-    // ✅ 삭제되지 않은 리포트 중 ID로 조회
-    Optional<ErrorReport> findByIdAndIsDeletedFalse(Long id);
+    // ========================================
+    // 통계 조회 메서드들
+    // ========================================
 
     // ✅ 리포트 상태별 개수 조회
     @Query("SELECT e.reportStatus, COUNT(e) FROM ErrorReport e WHERE e.isDeleted = false GROUP BY e.reportStatus")
     List<Object[]> countByReportStatus();
+
+    // ✅ 카테고리별 개수 조회 (AI 분류 결과)
+    @Query("SELECT e.reportCategory, COUNT(e) FROM ErrorReport e WHERE e.isDeleted = false GROUP BY e.reportCategory")
+    List<Object[]> countByReportCategory();
 
     // ✅ 전체 리포트 개수 (삭제되지 않은 것만)
     long countByIsDeletedFalse();
@@ -58,35 +111,41 @@ public interface ErrorReportRepository extends JpaRepository<ErrorReport, Long> 
     @Query("SELECT COUNT(e) FROM ErrorReport e WHERE e.isDeleted = false AND DATE(e.createdDt) = CURRENT_DATE")
     long countTodayReports();
 
+    // ✅ 최근 N일간의 공격 탐지 건수 (보안 대시보드용)
+    @Query("SELECT COUNT(e) FROM ErrorReport e WHERE e.isDeleted = false AND e.reportCategory = 'ATTACK' AND e.createdDt >= :since")
+    long countAttackReportsSince(@Param("since") LocalDateTime since);
+
     // ========================================
-    // 카테고리 관련 조회 메서드들
+    // 특별 조회 메서드들
     // ========================================
 
-    // ✅ 특정 카테고리의 에러 리포트 조회 (카테고리 정보 포함)
-    @Query("SELECT e FROM ErrorReport e LEFT JOIN FETCH e.categoryType WHERE e.isDeleted = false AND e.categoryType.id = :categoryId ORDER BY e.createdDt DESC")
-    List<ErrorReport> findByCategoryTypeIdWithCategory(@Param("categoryId") Long categoryId);
+    // ✅ 특정 카테고리의 리포트 조회
+    @Query("SELECT e FROM ErrorReport e WHERE e.isDeleted = false AND e.reportCategory = :category ORDER BY e.createdDt DESC")
+    List<ErrorReport> findByReportCategory(@Param("category") ErrorReport.ReportCategory category);
 
-    // ✅ 카테고리별 에러 리포트 개수 조회
-    @Query("SELECT c.name, COUNT(e) FROM ErrorReport e JOIN e.categoryType c WHERE e.isDeleted = false GROUP BY c.name ORDER BY COUNT(e) DESC")
-    List<Object[]> countByCategory();
+    // ✅ 최신 공격 탐지 리포트 (제한된 개수)
+    @Query("SELECT e FROM ErrorReport e WHERE e.isDeleted = false AND e.reportCategory = 'ATTACK' ORDER BY e.createdDt DESC LIMIT :limit")
+    List<ErrorReport> findLatestAttackReports(@Param("limit") int limit);
 
-    // ✅ 특정 카테고리의 특정 상태 리포트 조회
-    @Query("SELECT e FROM ErrorReport e LEFT JOIN FETCH e.categoryType WHERE e.isDeleted = false AND e.categoryType.id = :categoryId AND e.reportStatus = :status ORDER BY e.createdDt DESC")
-    List<ErrorReport> findByCategoryAndStatus(@Param("categoryId") Long categoryId, @Param("status") ErrorReport.ReportStatus status);
+    // ✅ 특정 날짜의 리포트 조회
+    @Query("SELECT e FROM ErrorReport e WHERE e.isDeleted = false AND DATE(e.createdDt) = :date ORDER BY e.createdDt DESC")
+    List<ErrorReport> findByCreatedDate(@Param("date") String date);
 
-    // ✅ 모든 리포트 조회 (카테고리 정보 포함) - 페치 조인으로 N+1 문제 해결
-    @Query("SELECT e FROM ErrorReport e LEFT JOIN FETCH e.categoryType WHERE e.isDeleted = false ORDER BY e.createdDt DESC")
-    List<ErrorReport> findAllWithCategory();
+    // ✅ 특정 카테고리와 상태의 최신 리포트
+    @Query("SELECT e FROM ErrorReport e WHERE e.isDeleted = false AND e.reportCategory = :category AND e.reportStatus = :status ORDER BY e.createdDt DESC LIMIT :limit")
+    List<ErrorReport> findLatestByCategoryAndStatus(@Param("category") ErrorReport.ReportCategory category,
+                                                    @Param("status") ErrorReport.ReportStatus status,
+                                                    @Param("limit") int limit);
 
-    // ✅ 특정 ID로 리포트 조회 (카테고리 정보 포함)
-    @Query("SELECT e FROM ErrorReport e LEFT JOIN FETCH e.categoryType WHERE e.isDeleted = false AND e.id = :id")
-    Optional<ErrorReport> findByIdWithCategory(@Param("id") Long id);
+    // ✅ 제목이 있는 리포트만 조회 (AI가 분석을 완료한 것들)
+    @Query("SELECT e FROM ErrorReport e WHERE e.isDeleted = false AND e.reportTitle IS NOT NULL AND e.reportTitle != '' ORDER BY e.createdDt DESC")
+    List<ErrorReport> findReportsWithTitle();
 
-    // ✅ 카테고리가 없는 에러 리포트 조회
-    @Query("SELECT e FROM ErrorReport e WHERE e.isDeleted = false AND e.categoryType IS NULL ORDER BY e.createdDt DESC")
-    List<ErrorReport> findUncategorizedReports();
+    // ✅ 미리보기가 있는 리포트만 조회 (AI 분석 완료)
+    @Query("SELECT e FROM ErrorReport e WHERE e.isDeleted = false AND e.reportPreview IS NOT NULL AND e.reportPreview != '' ORDER BY e.createdDt DESC")
+    List<ErrorReport> findReportsWithPreview();
 
-    // ✅ 최신순 리포트 조회 (카테고리 정보 포함)
-    @Query("SELECT e FROM ErrorReport e LEFT JOIN FETCH e.categoryType WHERE e.isDeleted = false ORDER BY e.createdDt DESC")
-    List<ErrorReport> findLatestWithCategory();
+    // ✅ AI 분석이 완료된 리포트 (제목과 미리보기 모두 있음)
+    @Query("SELECT e FROM ErrorReport e WHERE e.isDeleted = false AND e.reportTitle IS NOT NULL AND e.reportTitle != '' AND e.reportPreview IS NOT NULL AND e.reportPreview != '' ORDER BY e.createdDt DESC")
+    List<ErrorReport> findAiAnalyzedReports();
 }

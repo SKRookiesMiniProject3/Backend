@@ -4,28 +4,37 @@ import lombok.*;
 
 import java.time.LocalDateTime;
 
+/**
+ * ErrorReportDTO - 새 Entity 구조에 맞춤
+ */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @Getter
 public class ErrorReportDTO {
+
+    // 기본 정보
     private Long id;
-    private Long reportFileId;
-    private Long errorSourceMember;
-    private String reportStatus;
-    private String reportStatusDescription;
-    private String reportComment;
-    private Boolean isDeleted;
-    private LocalDateTime createdDt;
-    private LocalDateTime deletedDt;
 
-    // 카테고리 정보 추가
-    private Long categoryTypeId;
-    private String categoryName;
-    private String categoryDescription;
+    // ========================================
+    // 새 구조 필드들 (Entity와 일치)
+    // ========================================
 
-    // 추가 정보 (조인 등으로 가져올 수 있는 정보)
-    private String errorSourceMemberName; // 에러 원인 사용자 이름
-    private String reportFileName; // 리포트 파일명
+    private String reportTitle;              // 리포트 제목 (Flask What)
+    private String reportPreview;            // 리포트 간략 설명 (Flask Why)
+    private String reportCategory;           // 카테고리 (ATTACK, VALID, INVALID)
+    private String reportCategoryDescription; // 카테고리 설명
+    private String reportPath;               // 리포트 파일 실제 경로
+
+    // ========================================
+    // 기존 필드들 (유지)
+    // ========================================
+
+    private String reportStatus;             // 리포트 상태 (NOT_STARTED, IN_PROGRESS, COMPLETED)
+    private String reportStatusDescription;  // 상태 설명
+    private String reportComment;            // 리포트 코멘트
+    private Boolean isDeleted;               // 삭제 여부
+    private LocalDateTime createdDt;         // 생성일
+    private LocalDateTime deletedDt;         // 삭제일
 }

@@ -20,11 +20,28 @@ public class ErrorReport {
     @Column(name = "id", nullable = false, columnDefinition = "BIGINT COMMENT '리포트 ID'")
     private Long id;
 
-    @Column(name = "report_file_id", columnDefinition = "BIGINT COMMENT '리포트 파일 ID (attach_file.id, category = ERROR_REPORT)'")
-    private Long reportFileId;
+    // ========================================
+    // 새로 추가된 컬럼들
+    // ========================================
 
-    @Column(name = "error_source_member", columnDefinition = "BIGINT COMMENT '에러 원인 사용자 ID, 처음 생성 시 or unknown 계정 시 null'")
-    private Long errorSourceMember;
+    @Column(name = "report_title", columnDefinition = "VARCHAR(255) COMMENT '리포트 제목 (Flask What)'")
+    private String reportTitle;
+
+    @Lob
+    @Column(name = "report_preview", columnDefinition = "TEXT COMMENT '리포트 간략 설명 (Flask Why)'")
+    private String reportPreview;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "report_category", columnDefinition = "VARCHAR(255) COMMENT '카테고리 (attack, valid, invalid)'")
+    @Builder.Default
+    private ReportCategory reportCategory = ReportCategory.VALID;
+
+    @Column(name = "report_path", nullable = false, columnDefinition = "VARCHAR(255) NOT NULL COMMENT '리포트 파일 실제 경로'")
+    private String reportPath;
+
+    // ========================================
+    // 기존 컬럼들 (수정됨)
+    // ========================================
 
     @Enumerated(EnumType.STRING)
     @Column(name = "report_status", nullable = false, columnDefinition = "VARCHAR(255) NOT NULL DEFAULT 'NOT_STARTED' COMMENT '리포트 진행상황'")
@@ -32,7 +49,7 @@ public class ErrorReport {
     private ReportStatus reportStatus = ReportStatus.NOT_STARTED;
 
     @Lob
-    @Column(name = "report_comment", columnDefinition = "TEXT COMMENT '리포트에 맞는 코멘트'")
+    @Column(name = "report_comment", columnDefinition = "TEXT COMMENT '리포트 작업에 맞는 코멘트'")
     private String reportComment;
 
     @Column(name = "is_deleted", nullable = false, columnDefinition = "BOOLEAN DEFAULT FALSE COMMENT '삭제 여부'")
@@ -48,20 +65,41 @@ public class ErrorReport {
     private LocalDateTime deletedDt;
 
     // ========================================
-    // 카테고리 연관관계 추가
+    // Enum 정의 (필수!)
     // ========================================
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "category_type_id", columnDefinition = "BIGINT COMMENT '에러 카테고리 ID (category_type.id)'")
-    private CategoryType categoryType;
+    /**
+     * 보고서 카테고리 Enum (attack, valid, invalid)
+     */
+    public enum ReportCategory {
+        ATTACK("공격", "보안 위협 또는 공격 시도"),
+        VALID("정상", "정상적인 시스템 동작"),
+        INVALID("비정상", "시스템 오류 또는 예외 상황");
 
-    // 리포트 상태 Enum
+        private final String description;
+        private final String detail;
+
+        ReportCategory(String description, String detail) {
+            this.description = description;
+            this.detail = detail;
+        }
+
+        public String getDescription() {
+            return description;
+        }
+
+        public String getDetail() {
+            return detail;
+        }
+    }
+
+    /**
+     * 리포트 상태 Enum (3가지만)
+     */
     public enum ReportStatus {
         NOT_STARTED("시작 안함"),
         IN_PROGRESS("진행중"),
-        COMPLETED("완료"),
-        CANCELLED("취소"),
-        ON_HOLD("보류");
+        COMPLETED("완료");
 
         private final String description;
 
@@ -74,6 +112,10 @@ public class ErrorReport {
         }
     }
 
+    // ========================================
+    // 비즈니스 메서드들
+    // ========================================
+
     @PrePersist
     public void prePersist() {
         if (this.createdDt == null) {
@@ -85,66 +127,23 @@ public class ErrorReport {
         if (this.reportStatus == null) {
             this.reportStatus = ReportStatus.NOT_STARTED;
         }
-    }
-
-    // 비즈니스 메서드들
-
-    /**
-     * 리포트 시작
-     */
-    public void startReport() {
-        this.reportStatus = ReportStatus.IN_PROGRESS;
+        if (this.reportCategory == null) {
+            this.reportCategory = ReportCategory.VALID;
+        }
     }
 
     /**
-     * 리포트 완료
+     * 공격으로 분류되었는지 확인
      */
-    public void completeReport() {
-        this.reportStatus = ReportStatus.COMPLETED;
+    public boolean isAttackCategory() {
+        return this.reportCategory == ReportCategory.ATTACK;
     }
 
     /**
-     * 리포트 취소
+     * 정상으로 분류되었는지 확인
      */
-    public void cancelReport() {
-        this.reportStatus = ReportStatus.CANCELLED;
-    }
-
-    /**
-     * 리포트 보류
-     */
-    public void holdReport() {
-        this.reportStatus = ReportStatus.ON_HOLD;
-    }
-
-    /**
-     * 소프트 삭제
-     */
-    public void softDelete() {
-        this.isDeleted = true;
-        this.deletedDt = LocalDateTime.now();
-    }
-
-    /**
-     * 삭제 복구
-     */
-    public void restore() {
-        this.isDeleted = false;
-        this.deletedDt = null;
-    }
-
-    /**
-     * 삭제 여부 확인
-     */
-    public boolean isDeleted() {
-        return Boolean.TRUE.equals(this.isDeleted);
-    }
-
-    /**
-     * 진행중인지 확인
-     */
-    public boolean isInProgress() {
-        return this.reportStatus == ReportStatus.IN_PROGRESS;
+    public boolean isValidCategory() {
+        return this.reportCategory == ReportCategory.VALID;
     }
 
     /**
@@ -155,37 +154,9 @@ public class ErrorReport {
     }
 
     /**
-     * 댓글 추가/수정
+     * 진행중인지 확인
      */
-    public void updateComment(String comment) {
-        this.reportComment = comment;
-    }
-
-    /**
-     * 카테고리 설정
-     */
-    public void setCategoryType(CategoryType categoryType) {
-        this.categoryType = categoryType;
-    }
-
-    /**
-     * 카테고리 제거
-     */
-    public void removeCategoryType() {
-        this.categoryType = null;
-    }
-
-    /**
-     * 카테고리가 설정되어 있는지 확인
-     */
-    public boolean hasCategoryType() {
-        return this.categoryType != null;
-    }
-
-    /**
-     * 카테고리 이름 반환
-     */
-    public String getCategoryName() {
-        return this.categoryType != null ? this.categoryType.getName() : null;
+    public boolean isInProgress() {
+        return this.reportStatus == ReportStatus.IN_PROGRESS;
     }
 }

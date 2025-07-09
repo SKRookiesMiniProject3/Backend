@@ -15,6 +15,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.Arrays;
 
 /**
@@ -231,68 +232,307 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     private void initializeErrorReports() {
-        log.info("에러 리포트 샘플 데이터 초기화 중...");
+        log.info("프론트 테스트용 날짜별 분산 에러 리포트 샘플 데이터 초기화 중...");
 
-        // 카테고리 타입들 조회 (있다면)
-        CategoryType categoryA = categoryTypeRepository.findById(1L).orElse(null);
-        CategoryType categoryB = categoryTypeRepository.findById(2L).orElse(null);
-        CategoryType categoryC = categoryTypeRepository.findById(3L).orElse(null);
+        LocalDateTime now = LocalDateTime.now();
 
-        // 샘플 에러 리포트 1 - 시작 안함 (카테고리 A)
-        errorReportRepository.save(ErrorReport.builder()
-                .reportFileId(null) // 파일 없음
-                .errorSourceMember(1L) // 사용자 ID 1
-                .reportStatus(ErrorReport.ReportStatus.NOT_STARTED)
-                .reportComment("NullPointerException 발생으로 인한 리포트 생성")
-                .categoryType(categoryA) // 카테고리 A 설정
-                .build());
+        // ========================================
+        // 헬퍼 메서드로 날짜별 데이터 생성
+        // ========================================
 
-        // 샘플 에러 리포트 2 - 진행중 (카테고리 B)
-        errorReportRepository.save(ErrorReport.builder()
-                .reportFileId(null)
-                .errorSourceMember(2L) // 사용자 ID 2
-                .reportStatus(ErrorReport.ReportStatus.IN_PROGRESS)
-                .reportComment("DB 연결 실패 관련 조사 진행중")
-                .categoryType(categoryB) // 카테고리 B 설정
-                .build());
+        // 30일 전 - 공격 1건
+        createSampleReport(now.minusDays(30), "Credential Stuffing 공격 탐지",
+                "유출된 계정 정보를 이용한 대량 로그인 시도가 감지되었습니다.",
+                ErrorReport.ReportCategory.ATTACK, ErrorReport.ReportStatus.COMPLETED);
 
-        // 샘플 에러 리포트 3 - 완료 (카테고리 C)
-        errorReportRepository.save(ErrorReport.builder()
-                .reportFileId(null)
-                .errorSourceMember(null) // 원인 사용자 불명
-                .reportStatus(ErrorReport.ReportStatus.COMPLETED)
-                .reportComment("config.yml 파일 누락 문제 해결 완료")
-                .categoryType(categoryC) // 카테고리 C 설정
-                .build());
+        // 28일 전 - 정상 1건, 오류 1건
+        createSampleReport(now.minusDays(28), "일일 백업 정상 완료",
+                "모든 데이터베이스와 파일 시스템 백업이 성공적으로 완료되었습니다.",
+                ErrorReport.ReportCategory.VALID, ErrorReport.ReportStatus.COMPLETED);
+        createSampleReport(now.minusDays(28).plusHours(14), "메모리 사용량 임계치 경고",
+                "서버 메모리 사용률이 85%를 초과했습니다. 메모리 누수 가능성을 조사 중입니다.",
+                ErrorReport.ReportCategory.INVALID, ErrorReport.ReportStatus.COMPLETED);
 
-        // 샘플 에러 리포트 4 - 보류 (카테고리 없음)
-        errorReportRepository.save(ErrorReport.builder()
-                .reportFileId(null)
-                .errorSourceMember(3L)
-                .reportStatus(ErrorReport.ReportStatus.ON_HOLD)
-                .reportComment("토큰 만료 문제 - 추가 조사 필요로 보류")
-                .categoryType(null) // 카테고리 없음 (미분류)
-                .build());
+        // 25일 전 - 공격 2건
+        createSampleReport(now.minusDays(25), "SQL Injection 시도 차단",
+                "로그인 폼에서 악성 SQL 쿼리 삽입 시도가 감지되어 자동 차단되었습니다.",
+                ErrorReport.ReportCategory.ATTACK, ErrorReport.ReportStatus.COMPLETED);
+        createSampleReport(now.minusDays(25).plusHours(16), "XSS 공격 패턴 탐지",
+                "게시판에서 악성 스크립트 삽입 시도가 감지되었습니다.",
+                ErrorReport.ReportCategory.ATTACK, ErrorReport.ReportStatus.COMPLETED);
 
-        // 샘플 에러 리포트 5 - 취소 (카테고리 A)
-        errorReportRepository.save(ErrorReport.builder()
-                .reportFileId(null)
-                .errorSourceMember(null)
-                .reportStatus(ErrorReport.ReportStatus.CANCELLED)
-                .reportComment("IndexOutOfBoundsException - 중복 리포트로 취소")
-                .categoryType(categoryA) // 카테고리 A 설정
-                .build());
+        // 22일 전 - 정상 2건
+        createSampleReport(now.minusDays(22), "시스템 헬스체크 정상",
+                "모든 마이크로서비스가 정상 동작 중입니다. CPU, 메모리, 디스크 모두 안정적입니다.",
+                ErrorReport.ReportCategory.VALID, ErrorReport.ReportStatus.COMPLETED);
+        createSampleReport(now.minusDays(22).plusHours(12), "API 응답시간 정상",
+                "주요 API 엔드포인트들의 평균 응답시간이 200ms 이하로 양호합니다.",
+                ErrorReport.ReportCategory.VALID, ErrorReport.ReportStatus.COMPLETED);
 
-        // 샘플 에러 리포트 6 - 진행중 (카테고리 없음)
-        errorReportRepository.save(ErrorReport.builder()
-                .reportFileId(null)
-                .errorSourceMember(1L)
-                .reportStatus(ErrorReport.ReportStatus.IN_PROGRESS)
-                .reportComment("세션 타임아웃 이슈 - 미분류")
-                .categoryType(null) // 카테고리 없음 (미분류)
-                .build());
+        // 20일 전 - 오류 1건
+        createSampleReport(now.minusDays(20), "데이터베이스 연결 풀 고갈",
+                "최대 연결 수에 도달하여 새로운 DB 연결이 대기 상태입니다.",
+                ErrorReport.ReportCategory.INVALID, ErrorReport.ReportStatus.COMPLETED);
 
-        log.info("에러 리포트 샘플 데이터 초기화 완료!");
+        // 18일 전 - 공격 1건, 정상 1건
+        createSampleReport(now.minusDays(18), "DDoS 공격 패턴 감지",
+                "동일 IP 대역에서 초당 500건 이상의 HTTP 요청이 감지되었습니다.",
+                ErrorReport.ReportCategory.ATTACK, ErrorReport.ReportStatus.COMPLETED);
+        createSampleReport(now.minusDays(18).plusHours(10), "SSL 인증서 갱신 완료",
+                "만료 예정이던 SSL 인증서가 자동으로 갱신되었습니다.",
+                ErrorReport.ReportCategory.VALID, ErrorReport.ReportStatus.COMPLETED);
+
+        // 15일 전 - 오류 2건
+        createSampleReport(now.minusDays(15), "Redis 캐시 서버 장애",
+                "Redis 서버가 응답하지 않아 캐시 기능이 일시적으로 중단되었습니다.",
+                ErrorReport.ReportCategory.INVALID, ErrorReport.ReportStatus.COMPLETED);
+        createSampleReport(now.minusDays(15).plusHours(8), "외부 API 연동 실패",
+                "결제 시스템 API 호출에서 타임아웃이 발생하고 있습니다.",
+                ErrorReport.ReportCategory.INVALID, ErrorReport.ReportStatus.COMPLETED);
+
+        // 12일 전 - 공격 3건 (공격 집중일)
+        createSampleReport(now.minusDays(12), "무차별 대입 공격 탐지",
+                "admin 계정에 대한 무차별 패스워드 시도가 1시간 동안 지속되었습니다.",
+                ErrorReport.ReportCategory.ATTACK, ErrorReport.ReportStatus.COMPLETED);
+        createSampleReport(now.minusDays(12).plusHours(6), "파일 업로드 공격 시도",
+                "악성 파일(.php, .exe) 업로드 시도가 여러 차례 감지되었습니다.",
+                ErrorReport.ReportCategory.ATTACK, ErrorReport.ReportStatus.COMPLETED);
+        createSampleReport(now.minusDays(12).plusHours(20), "디렉토리 트래버설 공격",
+                "시스템 파일 접근을 위한 경로 조작 시도가 감지되었습니다.",
+                ErrorReport.ReportCategory.ATTACK, ErrorReport.ReportStatus.COMPLETED);
+
+        // 10일 전 - 정상 1건
+        createSampleReport(now.minusDays(10), "주간 성능 리포트 정상",
+                "지난 주 시스템 성능 지표가 모든 항목에서 정상 범위를 유지했습니다.",
+                ErrorReport.ReportCategory.VALID, ErrorReport.ReportStatus.COMPLETED);
+
+        // 8일 전 - 오류 1건, 정상 1건
+        createSampleReport(now.minusDays(8), "로그 파일 용량 초과",
+                "애플리케이션 로그 파일이 10GB를 초과하여 디스크 공간 부족 경고가 발생했습니다.",
+                ErrorReport.ReportCategory.INVALID, ErrorReport.ReportStatus.COMPLETED);
+        createSampleReport(now.minusDays(8).plusHours(15), "사용자 인증 시스템 정상",
+                "OAuth 2.0 인증 서버가 안정적으로 동작 중입니다. 토큰 발급율 99.9%입니다.",
+                ErrorReport.ReportCategory.VALID, ErrorReport.ReportStatus.COMPLETED);
+
+        // 5일 전 - 공격 1건, 오류 1건
+        createSampleReport(now.minusDays(5), "세션 하이재킹 시도 탐지",
+                "유효하지 않은 세션 토큰을 이용한 접근 시도가 감지되었습니다.",
+                ErrorReport.ReportCategory.ATTACK, ErrorReport.ReportStatus.COMPLETED);
+        createSampleReport(now.minusDays(5).plusHours(11), "마이크로서비스 간 통신 오류",
+                "주문 서비스와 재고 서비스 간 gRPC 통신에서 간헐적 오류가 발생하고 있습니다.",
+                ErrorReport.ReportCategory.INVALID, ErrorReport.ReportStatus.COMPLETED);
+
+        // 3일 전 - 정상 2건
+        createSampleReport(now.minusDays(3), "데이터베이스 최적화 완료",
+                "인덱스 재구성 및 통계 업데이트가 완료되어 쿼리 성능이 20% 향상되었습니다.",
+                ErrorReport.ReportCategory.VALID, ErrorReport.ReportStatus.COMPLETED);
+        createSampleReport(now.minusDays(3).plusHours(13), "CDN 캐시 히트율 양호",
+                "CDN 캐시 히트율이 95%를 유지하여 서버 부하가 크게 감소했습니다.",
+                ErrorReport.ReportCategory.VALID, ErrorReport.ReportStatus.COMPLETED);
+
+        // 1일 전 - 공격 1건, 진행중
+        createSampleReport(now.minusDays(1), "실시간 봇 트래픽 탐지",
+                "자동화된 봇으로 추정되는 비정상적인 트래픽 패턴이 실시간으로 감지되고 있습니다.",
+                ErrorReport.ReportCategory.ATTACK, ErrorReport.ReportStatus.IN_PROGRESS);
+
+        // 오늘 - 오류 1건 진행중, 정상 1건 완료, 공격 1건 시작안함
+        createSampleReport(now.minusHours(6), "API 응답 지연 발생",
+                "사용자 조회 API에서 평소보다 3배 느린 응답시간을 보이고 있습니다.",
+                ErrorReport.ReportCategory.INVALID, ErrorReport.ReportStatus.IN_PROGRESS);
+
+        createSampleReport(now.minusHours(3), "시스템 모니터링 정상",
+                "모든 시스템 메트릭이 정상 범위 내에서 안정적으로 유지되고 있습니다.",
+                ErrorReport.ReportCategory.VALID, ErrorReport.ReportStatus.COMPLETED);
+
+        createSampleReport(now.minusHours(1), "의심스러운 로그인 패턴 감지",
+                "새벽 시간대 비정상적인 지역에서의 로그인 시도가 감지되었습니다.",
+                ErrorReport.ReportCategory.ATTACK, ErrorReport.ReportStatus.NOT_STARTED);
+
+        log.info("📊 프론트 테스트용 샘플 데이터 생성 완료!");
+        log.info("📈 총 25건 - 30일간 분산 데이터");
+        log.info("🚨 공격 탐지: 10건 (40%)");
+        log.info("⚠️ 시스템 오류: 8건 (32%)");
+        log.info("✅ 정상 동작: 7건 (28%)");
     }
+
+    /**
+     * 샘플 리포트 생성 헬퍼 메서드
+     */
+    private void createSampleReport(LocalDateTime createdDate, String title, String preview,
+                                    ErrorReport.ReportCategory category, ErrorReport.ReportStatus status) {
+
+        String dateStr = createdDate.toLocalDate().toString();
+        String timeStr = createdDate.toLocalTime().toString().substring(0, 5); // HH:mm
+
+        ErrorReport report = ErrorReport.builder()
+                .reportTitle(title)
+                .reportPreview(preview)
+                .reportCategory(category)
+                .reportPath(String.format("/reports/%s/%s_%s_%03d.json",
+                        category.name().toLowerCase(),
+                        category.name().toLowerCase(),
+                        dateStr,
+                        Math.abs(title.hashCode() % 1000)))
+                .reportStatus(status)
+                .reportComment(generateComment(category, status))
+                .isDeleted(false)
+                .build();
+
+        // 날짜 수동 설정을 위해 별도 처리
+        report.setCreatedDt(createdDate);
+
+        errorReportRepository.save(report);
+    }
+
+    /**
+     * 카테고리와 상태에 따른 코멘트 생성
+     */
+    private String generateComment(ErrorReport.ReportCategory category, ErrorReport.ReportStatus status) {
+        switch (category) {
+            case ATTACK:
+                return status == ErrorReport.ReportStatus.COMPLETED ?
+                        "보안팀에서 대응 완료" :
+                        status == ErrorReport.ReportStatus.IN_PROGRESS ?
+                                "보안팀 긴급 대응 중" : "보안팀 검토 대기";
+            case INVALID:
+                return status == ErrorReport.ReportStatus.COMPLETED ?
+                        "시스템팀에서 수정 완료" :
+                        status == ErrorReport.ReportStatus.IN_PROGRESS ?
+                                "시스템팀 조치 중" : "시스템팀 배정 대기";
+            case VALID:
+                return "정상 동작 확인됨";
+            default:
+                return "검토 중";
+        }
+    }
+
+//    private void initializeErrorReports() {
+//        log.info("에러 리포트 샘플 데이터 초기화 중... (새 구조)");
+//
+//        // ========================================
+//        // 샘플 에러 리포트 1 - 공격 탐지 (중요!)
+//        // ========================================
+//        errorReportRepository.save(ErrorReport.builder()
+//                .reportTitle("SQL Injection 공격 시도 탐지")
+//                .reportPreview("로그인 폼에서 악성 SQL 쿼리 삽입 시도가 감지되었습니다. 사용자 입력값에서 'UNION SELECT' 패턴을 발견했습니다.")
+//                .reportCategory(ErrorReport.ReportCategory.ATTACK)
+//                .reportPath("/reports/security/sql_injection_20240701_001.json")
+//                .reportStatus(ErrorReport.ReportStatus.IN_PROGRESS)
+//                .reportComment("보안팀에서 긴급 대응 중")
+//                .build());
+//
+//        // ========================================
+//        // 샘플 에러 리포트 2 - 공격 탐지 (완료됨)
+//        // ========================================
+//        errorReportRepository.save(ErrorReport.builder()
+//                .reportTitle("무차별 대입 공격(Brute Force) 탐지")
+//                .reportPreview("동일 IP에서 10분간 500회 이상의 로그인 실패 시도가 발생했습니다. 패스워드 크래킹 시도로 판단됩니다.")
+//                .reportCategory(ErrorReport.ReportCategory.ATTACK)
+//                .reportPath("/reports/security/brute_force_20240701_002.json")
+//                .reportStatus(ErrorReport.ReportStatus.COMPLETED)
+//                .reportComment("해당 IP 차단 완료 및 보안 정책 강화")
+//                .build());
+//
+//        // ========================================
+//        // 샘플 에러 리포트 3 - 비정상 동작
+//        // ========================================
+//        errorReportRepository.save(ErrorReport.builder()
+//                .reportTitle("데이터베이스 연결 풀 고갈")
+//                .reportPreview("최대 데이터베이스 연결 수(50개)에 도달하여 새로운 연결 요청이 거부되고 있습니다. 커넥션 누수 의심됩니다.")
+//                .reportCategory(ErrorReport.ReportCategory.INVALID)
+//                .reportPath("/reports/system/db_pool_exhaustion_20240701_003.json")
+//                .reportStatus(ErrorReport.ReportStatus.IN_PROGRESS)
+//                .reportComment("DBA팀에서 커넥션 풀 설정 검토 중")
+//                .build());
+//
+//        // ========================================
+//        // 샘플 에러 리포트 4 - 비정상 동작 (완료)
+//        // ========================================
+//        errorReportRepository.save(ErrorReport.builder()
+//                .reportTitle("메모리 사용량 임계치 초과")
+//                .reportPreview("JVM 힙 메모리 사용률이 95%를 초과했습니다. GC 빈도가 증가하여 애플리케이션 성능에 영향을 주고 있습니다.")
+//                .reportCategory(ErrorReport.ReportCategory.INVALID)
+//                .reportPath("/reports/system/memory_overflow_20240701_004.json")
+//                .reportStatus(ErrorReport.ReportStatus.COMPLETED)
+//                .reportComment("힙 메모리 크기 증설 및 메모리 누수 패치 완료")
+//                .build());
+//
+//        // ========================================
+//        // 샘플 에러 리포트 5 - 정상 동작
+//        // ========================================
+//        errorReportRepository.save(ErrorReport.builder()
+//                .reportTitle("정기 시스템 백업 완료")
+//                .reportPreview("매일 새벽 2시 정기 백업이 정상적으로 완료되었습니다. 모든 데이터베이스와 파일 시스템이 성공적으로 백업되었습니다.")
+//                .reportCategory(ErrorReport.ReportCategory.VALID)
+//                .reportPath("/reports/backup/daily_backup_20240701_005.json")
+//                .reportStatus(ErrorReport.ReportStatus.COMPLETED)
+//                .reportComment("백업 정상 완료 - 이상 없음")
+//                .build());
+//
+//        // ========================================
+//        // 샘플 에러 리포트 6 - 정상 동작
+//        // ========================================
+//        errorReportRepository.save(ErrorReport.builder()
+//                .reportTitle("사용자 로그인 성공률 정상")
+//                .reportPreview("지난 24시간 동안 사용자 로그인 성공률이 98.5%로 정상 범위 내에 있습니다. 평균 응답시간 0.3초로 양호합니다.")
+//                .reportCategory(ErrorReport.ReportCategory.VALID)
+//                .reportPath("/reports/auth/login_stats_20240701_006.json")
+//                .reportStatus(ErrorReport.ReportStatus.COMPLETED)
+//                .reportComment("인증 시스템 정상 동작 확인")
+//                .build());
+//
+//        // ========================================
+//        // 샘플 에러 리포트 7 - 공격 탐지 (아직 시작 안함)
+//        // ========================================
+//        errorReportRepository.save(ErrorReport.builder()
+//                .reportTitle("XSS 공격 패턴 탐지")
+//                .reportPreview("게시판 댓글 입력에서 악성 스크립트 삽입 시도가 감지되었습니다. '<script>' 태그를 포함한 입력값이 필터링되었습니다.")
+//                .reportCategory(ErrorReport.ReportCategory.ATTACK)
+//                .reportPath("/reports/security/xss_attempt_20240701_007.json")
+//                .reportStatus(ErrorReport.ReportStatus.NOT_STARTED)
+//                .reportComment("보안팀 검토 대기 중")
+//                .build());
+//
+//        // ========================================
+//        // 샘플 에러 리포트 8 - 비정상 동작 (시작 안함)
+//        // ========================================
+//        errorReportRepository.save(ErrorReport.builder()
+//                .reportTitle("API 응답 시간 지연")
+//                .reportPreview("사용자 정보 조회 API(/api/users)의 평균 응답시간이 3초를 초과했습니다. 정상 범위(1초) 대비 3배 지연되고 있습니다.")
+//                .reportCategory(ErrorReport.ReportCategory.INVALID)
+//                .reportPath("/reports/performance/api_delay_20240701_008.json")
+//                .reportStatus(ErrorReport.ReportStatus.NOT_STARTED)
+//                .reportComment("성능 최적화팀 배정 예정")
+//                .build());
+//
+//        // ========================================
+//        // 샘플 에러 리포트 9 - 공격 탐지 (진행중) - 매우 중요!
+//        // ========================================
+//        errorReportRepository.save(ErrorReport.builder()
+//                .reportTitle("DDoS 공격 패턴 감지")
+//                .reportPreview("동일한 C클래스 대역(192.168.1.*)에서 초당 1000건 이상의 HTTP 요청이 감지되었습니다. 서비스 가용성에 위협이 될 수 있습니다.")
+//                .reportCategory(ErrorReport.ReportCategory.ATTACK)
+//                .reportPath("/reports/security/ddos_attack_20240701_009.json")
+//                .reportStatus(ErrorReport.ReportStatus.IN_PROGRESS)
+//                .reportComment("🚨 긴급! 트래픽 차단 및 CDN 방화벽 활성화 중")
+//                .build());
+//
+//        // ========================================
+//        // 샘플 에러 리포트 10 - 정상 동작
+//        // ========================================
+//        errorReportRepository.save(ErrorReport.builder()
+//                .reportTitle("일일 트랜잭션 처리량 정상")
+//                .reportPreview("오늘 처리된 총 트랜잭션은 45,832건으로 평균 대비 정상 수준입니다. 오류율 0.02%로 매우 안정적입니다.")
+//                .reportCategory(ErrorReport.ReportCategory.VALID)
+//                .reportPath("/reports/transaction/daily_summary_20240701_010.json")
+//                .reportStatus(ErrorReport.ReportStatus.COMPLETED)
+//                .reportComment("시스템 안정성 양호")
+//                .build());
+//
+//        log.info("📊 에러 리포트 샘플 데이터 초기화 완료!");
+//        log.info("🚨 공격 탐지 리포트: 4건");
+//        log.info("⚠️ 비정상 동작 리포트: 3건");
+//        log.info("✅ 정상 동작 리포트: 3건");
+//    }
 
 }
