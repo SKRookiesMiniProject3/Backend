@@ -20,6 +20,11 @@ public class ErrorReportDTO {
     private LocalDateTime createdDt;
     private LocalDateTime deletedDt;
 
+    // 카테고리 정보 추가
+    private Long categoryTypeId;
+    private String categoryName;
+    private String categoryDescription;
+
     // 추가 정보 (조인 등으로 가져올 수 있는 정보)
     private String errorSourceMemberName; // 에러 원인 사용자 이름
     private String reportFileName; // 리포트 파일명

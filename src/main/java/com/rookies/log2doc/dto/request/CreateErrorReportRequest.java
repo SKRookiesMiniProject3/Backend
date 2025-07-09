@@ -17,6 +17,8 @@ public class CreateErrorReportRequest {
 
     private Long errorSourceMember; // 에러 원인 사용자 ID (선택사항)
 
+    private Long categoryTypeId; // 카테고리 타입 ID (선택사항)
+
     @Size(max = 1000, message = "리포트 코멘트는 1000자를 초과할 수 없습니다.")
     private String reportComment; // 리포트 코멘트
 

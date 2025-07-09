@@ -57,4 +57,36 @@ public interface ErrorReportRepository extends JpaRepository<ErrorReport, Long> 
     // ✅ 오늘 생성된 리포트 개수
     @Query("SELECT COUNT(e) FROM ErrorReport e WHERE e.isDeleted = false AND DATE(e.createdDt) = CURRENT_DATE")
     long countTodayReports();
+
+    // ========================================
+    // 카테고리 관련 조회 메서드들
+    // ========================================
+
+    // ✅ 특정 카테고리의 에러 리포트 조회 (카테고리 정보 포함)
+    @Query("SELECT e FROM ErrorReport e LEFT JOIN FETCH e.categoryType WHERE e.isDeleted = false AND e.categoryType.id = :categoryId ORDER BY e.createdDt DESC")
+    List<ErrorReport> findByCategoryTypeIdWithCategory(@Param("categoryId") Long categoryId);
+
+    // ✅ 카테고리별 에러 리포트 개수 조회
+    @Query("SELECT c.name, COUNT(e) FROM ErrorReport e JOIN e.categoryType c WHERE e.isDeleted = false GROUP BY c.name ORDER BY COUNT(e) DESC")
+    List<Object[]> countByCategory();
+
+    // ✅ 특정 카테고리의 특정 상태 리포트 조회
+    @Query("SELECT e FROM ErrorReport e LEFT JOIN FETCH e.categoryType WHERE e.isDeleted = false AND e.categoryType.id = :categoryId AND e.reportStatus = :status ORDER BY e.createdDt DESC")
+    List<ErrorReport> findByCategoryAndStatus(@Param("categoryId") Long categoryId, @Param("status") ErrorReport.ReportStatus status);
+
+    // ✅ 모든 리포트 조회 (카테고리 정보 포함) - 페치 조인으로 N+1 문제 해결
+    @Query("SELECT e FROM ErrorReport e LEFT JOIN FETCH e.categoryType WHERE e.isDeleted = false ORDER BY e.createdDt DESC")
+    List<ErrorReport> findAllWithCategory();
+
+    // ✅ 특정 ID로 리포트 조회 (카테고리 정보 포함)
+    @Query("SELECT e FROM ErrorReport e LEFT JOIN FETCH e.categoryType WHERE e.isDeleted = false AND e.id = :id")
+    Optional<ErrorReport> findByIdWithCategory(@Param("id") Long id);
+
+    // ✅ 카테고리가 없는 에러 리포트 조회
+    @Query("SELECT e FROM ErrorReport e WHERE e.isDeleted = false AND e.categoryType IS NULL ORDER BY e.createdDt DESC")
+    List<ErrorReport> findUncategorizedReports();
+
+    // ✅ 최신순 리포트 조회 (카테고리 정보 포함)
+    @Query("SELECT e FROM ErrorReport e LEFT JOIN FETCH e.categoryType WHERE e.isDeleted = false ORDER BY e.createdDt DESC")
+    List<ErrorReport> findLatestWithCategory();
 }

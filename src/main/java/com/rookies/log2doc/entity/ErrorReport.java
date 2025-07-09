@@ -47,6 +47,14 @@ public class ErrorReport {
     @Column(name = "deleted_dt", columnDefinition = "DATETIME NULL COMMENT '삭제일 (삭제 시 설정, null: 미삭제)'")
     private LocalDateTime deletedDt;
 
+    // ========================================
+    // 카테고리 연관관계 추가
+    // ========================================
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_type_id", columnDefinition = "BIGINT COMMENT '에러 카테고리 ID (category_type.id)'")
+    private CategoryType categoryType;
+
     // 리포트 상태 Enum
     public enum ReportStatus {
         NOT_STARTED("시작 안함"),
@@ -151,5 +159,33 @@ public class ErrorReport {
      */
     public void updateComment(String comment) {
         this.reportComment = comment;
+    }
+
+    /**
+     * 카테고리 설정
+     */
+    public void setCategoryType(CategoryType categoryType) {
+        this.categoryType = categoryType;
+    }
+
+    /**
+     * 카테고리 제거
+     */
+    public void removeCategoryType() {
+        this.categoryType = null;
+    }
+
+    /**
+     * 카테고리가 설정되어 있는지 확인
+     */
+    public boolean hasCategoryType() {
+        return this.categoryType != null;
+    }
+
+    /**
+     * 카테고리 이름 반환
+     */
+    public String getCategoryName() {
+        return this.categoryType != null ? this.categoryType.getName() : null;
     }
 }

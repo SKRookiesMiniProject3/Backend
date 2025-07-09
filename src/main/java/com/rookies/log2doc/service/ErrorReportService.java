@@ -3,7 +3,9 @@ package com.rookies.log2doc.service;
 import com.rookies.log2doc.dto.ErrorCountPerDayDTO;
 import com.rookies.log2doc.dto.ErrorReportDTO;
 import com.rookies.log2doc.dto.request.CreateErrorReportRequest;
+import com.rookies.log2doc.entity.CategoryType;
 import com.rookies.log2doc.entity.ErrorReport;
+import com.rookies.log2doc.repository.CategoryTypeRepository;
 import com.rookies.log2doc.repository.ErrorReportRepository;
 import com.rookies.log2doc.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +26,7 @@ public class ErrorReportService {
 
     private final ErrorReportRepository errorReportRepository;
     private final UserRepository userRepository;
+    private final CategoryTypeRepository categoryTypeRepository; // 추가
     private final FlaskReportService flaskReportService;
 
     // ✅ 일별 에러 카운트
@@ -31,9 +34,9 @@ public class ErrorReportService {
         return errorReportRepository.findDailyErrorCounts();
     }
 
-    // ✅ 최신순 리스트 (삭제되지 않은 것만)
+    // ✅ 최신순 리스트 (삭제되지 않은 것만) - 카테고리 정보 포함
     public List<ErrorReportDTO> getLatestReports() {
-        return errorReportRepository.findByIsDeletedFalseOrderByCreatedDtDesc()
+        return errorReportRepository.findLatestWithCategory()
                 .stream()
                 .limit(50) // 최대 50개만 반환
                 .map(this::toDTO)
@@ -89,18 +92,31 @@ public class ErrorReportService {
                 }
             }
 
-            // 3️⃣ DB에 저장
+            // 3️⃣ 카테고리 타입 검증 (선택사항)
+            CategoryType categoryType = null;
+            if (request.getCategoryTypeId() != null) {
+                categoryType = categoryTypeRepository.findById(request.getCategoryTypeId())
+                        .orElse(null);
+                if (categoryType == null) {
+                    log.warn("존재하지 않는 카테고리 타입 ID: {}", request.getCategoryTypeId());
+                }
+            }
+
+            // 4️⃣ DB에 저장
             ErrorReport entity = ErrorReport.builder()
                     .reportFileId(request.getReportFileId())
                     .errorSourceMember(request.getErrorSourceMember())
                     .reportStatus(status)
                     .reportComment(request.getReportComment())
+                    .categoryType(categoryType) // 카테고리 설정
                     .build();
 
             ErrorReport saved = errorReportRepository.save(entity);
-            log.info("에러 리포트 DB 저장 완료 - ID: {}", saved.getId());
+            log.info("에러 리포트 DB 저장 완료 - ID: {}, 카테고리: {}",
+                    saved.getId(),
+                    categoryType != null ? categoryType.getName() : "없음");
 
-            // 4️⃣ Flask로 비동기 전송
+            // 5️⃣ Flask로 비동기 전송
             sendToFlaskAsync(saved);
 
             return toDTO(saved);
@@ -180,9 +196,9 @@ public class ErrorReportService {
         log.info("에러 리포트 삭제 완료 - ID: {}", id);
     }
 
-    // ✅ 에러 리포트 상세 조회
+    // ✅ 에러 리포트 상세 조회 - 카테고리 정보 포함
     public ErrorReportDTO getReportById(Long id) {
-        ErrorReport errorReport = errorReportRepository.findByIdAndIsDeletedFalse(id)
+        ErrorReport errorReport = errorReportRepository.findByIdWithCategory(id)
                 .orElseThrow(() -> new RuntimeException("에러 리포트를 찾을 수 없습니다."));
 
         return toDTO(errorReport);
@@ -194,6 +210,70 @@ public class ErrorReportService {
                 .stream()
                 .map(this::toDTO)
                 .collect(Collectors.toList());
+    }
+
+    // ========================================
+    // 카테고리 관련 메서드들 추가
+    // ========================================
+
+    // ✅ 특정 카테고리의 에러 리포트 조회
+    public List<ErrorReportDTO> getReportsByCategory(Long categoryId) {
+        return errorReportRepository.findByCategoryTypeIdWithCategory(categoryId)
+                .stream()
+                .map(this::toDTO)
+                .collect(Collectors.toList());
+    }
+
+    // ✅ 카테고리별 에러 리포트 개수 통계
+    public Map<String, Long> getCategoryStatistics() {
+        List<Object[]> results = errorReportRepository.countByCategory();
+        return results.stream()
+                .collect(Collectors.toMap(
+                        result -> (String) result[0],
+                        result -> (Long) result[1]
+                ));
+    }
+
+    // ✅ 특정 카테고리의 특정 상태 리포트 조회
+    public List<ErrorReportDTO> getReportsByCategoryAndStatus(Long categoryId, String statusName) {
+        try {
+            ErrorReport.ReportStatus status = ErrorReport.ReportStatus.valueOf(statusName);
+            return errorReportRepository.findByCategoryAndStatus(categoryId, status)
+                    .stream()
+                    .map(this::toDTO)
+                    .collect(Collectors.toList());
+        } catch (IllegalArgumentException e) {
+            throw new RuntimeException("잘못된 리포트 상태입니다: " + statusName);
+        }
+    }
+
+    // ✅ 카테고리가 없는 에러 리포트 조회
+    public List<ErrorReportDTO> getUncategorizedReports() {
+        return errorReportRepository.findUncategorizedReports()
+                .stream()
+                .map(this::toDTO)
+                .collect(Collectors.toList());
+    }
+
+    // ✅ 에러 리포트 카테고리 변경
+    @Transactional
+    public ErrorReportDTO updateReportCategory(Long id, Long categoryId) {
+        ErrorReport errorReport = errorReportRepository.findByIdAndIsDeletedFalse(id)
+                .orElseThrow(() -> new RuntimeException("에러 리포트를 찾을 수 없습니다."));
+
+        CategoryType categoryType = null;
+        if (categoryId != null) {
+            categoryType = categoryTypeRepository.findById(categoryId)
+                    .orElseThrow(() -> new RuntimeException("카테고리를 찾을 수 없습니다."));
+        }
+
+        errorReport.setCategoryType(categoryType);
+        ErrorReport saved = errorReportRepository.save(errorReport);
+
+        log.info("에러 리포트 카테고리 변경 완료 - ID: {}, 새 카테고리: {}",
+                id, categoryType != null ? categoryType.getName() : "없음");
+
+        return toDTO(saved);
     }
 
     // ✅ 리포트 상태별 통계
@@ -229,12 +309,23 @@ public class ErrorReportService {
         }
     }
 
-    // ✅ DTO 변환
+    // ✅ DTO 변환 - 카테고리 정보 포함
     private ErrorReportDTO toDTO(ErrorReport entity) {
         String errorSourceMemberName = null;
         if (entity.getErrorSourceMember() != null) {
             // 사용자 이름 조회 (추후 구현)
             errorSourceMemberName = "사용자_" + entity.getErrorSourceMember();
+        }
+
+        // 카테고리 정보 추출
+        Long categoryTypeId = null;
+        String categoryName = null;
+        String categoryDescription = null;
+
+        if (entity.getCategoryType() != null) {
+            categoryTypeId = entity.getCategoryType().getId();
+            categoryName = entity.getCategoryType().getName();
+            categoryDescription = entity.getCategoryType().getDescription();
         }
 
         return ErrorReportDTO.builder()
@@ -247,6 +338,9 @@ public class ErrorReportService {
                 .isDeleted(entity.getIsDeleted())
                 .createdDt(entity.getCreatedDt())
                 .deletedDt(entity.getDeletedDt())
+                .categoryTypeId(categoryTypeId)
+                .categoryName(categoryName)
+                .categoryDescription(categoryDescription)
                 .errorSourceMemberName(errorSourceMemberName)
                 .build();
     }

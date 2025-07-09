@@ -233,44 +233,63 @@ public class DataInitializer implements CommandLineRunner {
     private void initializeErrorReports() {
         log.info("에러 리포트 샘플 데이터 초기화 중...");
 
-        // 샘플 에러 리포트 1 - 시작 안함
+        // 카테고리 타입들 조회 (있다면)
+        CategoryType categoryA = categoryTypeRepository.findById(1L).orElse(null);
+        CategoryType categoryB = categoryTypeRepository.findById(2L).orElse(null);
+        CategoryType categoryC = categoryTypeRepository.findById(3L).orElse(null);
+
+        // 샘플 에러 리포트 1 - 시작 안함 (카테고리 A)
         errorReportRepository.save(ErrorReport.builder()
                 .reportFileId(null) // 파일 없음
                 .errorSourceMember(1L) // 사용자 ID 1
                 .reportStatus(ErrorReport.ReportStatus.NOT_STARTED)
                 .reportComment("NullPointerException 발생으로 인한 리포트 생성")
+                .categoryType(categoryA) // 카테고리 A 설정
                 .build());
 
-        // 샘플 에러 리포트 2 - 진행중
+        // 샘플 에러 리포트 2 - 진행중 (카테고리 B)
         errorReportRepository.save(ErrorReport.builder()
                 .reportFileId(null)
                 .errorSourceMember(2L) // 사용자 ID 2
                 .reportStatus(ErrorReport.ReportStatus.IN_PROGRESS)
                 .reportComment("DB 연결 실패 관련 조사 진행중")
+                .categoryType(categoryB) // 카테고리 B 설정
                 .build());
 
-        // 샘플 에러 리포트 3 - 완료
+        // 샘플 에러 리포트 3 - 완료 (카테고리 C)
         errorReportRepository.save(ErrorReport.builder()
                 .reportFileId(null)
                 .errorSourceMember(null) // 원인 사용자 불명
                 .reportStatus(ErrorReport.ReportStatus.COMPLETED)
                 .reportComment("config.yml 파일 누락 문제 해결 완료")
+                .categoryType(categoryC) // 카테고리 C 설정
                 .build());
 
-        // 샘플 에러 리포트 4 - 보류
+        // 샘플 에러 리포트 4 - 보류 (카테고리 없음)
         errorReportRepository.save(ErrorReport.builder()
                 .reportFileId(null)
                 .errorSourceMember(3L)
                 .reportStatus(ErrorReport.ReportStatus.ON_HOLD)
                 .reportComment("토큰 만료 문제 - 추가 조사 필요로 보류")
+                .categoryType(null) // 카테고리 없음 (미분류)
                 .build());
 
-        // 샘플 에러 리포트 5 - 취소
+        // 샘플 에러 리포트 5 - 취소 (카테고리 A)
         errorReportRepository.save(ErrorReport.builder()
                 .reportFileId(null)
                 .errorSourceMember(null)
                 .reportStatus(ErrorReport.ReportStatus.CANCELLED)
                 .reportComment("IndexOutOfBoundsException - 중복 리포트로 취소")
+                .categoryType(categoryA) // 카테고리 A 설정
+                .build());
+
+        // 샘플 에러 리포트 6 - 진행중 (카테고리 없음)
+        errorReportRepository.save(ErrorReport.builder()
+                .reportFileId(null)
+                .errorSourceMember(1L)
+                .reportStatus(ErrorReport.ReportStatus.IN_PROGRESS)
+                .reportComment("세션 타임아웃 이슈 - 미분류")
+                .categoryType(null) // 카테고리 없음 (미분류)
                 .build());
 
         log.info("에러 리포트 샘플 데이터 초기화 완료!");
