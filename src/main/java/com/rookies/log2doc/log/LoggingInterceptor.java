@@ -93,15 +93,26 @@ public class LoggingInterceptor implements HandlerInterceptor {
         String sessionId = getSessionIdSafely(request);
         logData.put("session_id", sessionId);
 
-        // 헤더 정보
-        Map<String, String> headersMap = Collections.list(request.getHeaderNames()).stream()
-                .collect(HashMap::new, (m, k) -> m.put(k, request.getHeader(k)), HashMap::putAll);
-        logData.put("request_headers", headersMap);
+        // ✅ 헤더 정보 (이 부분이 문제일 수 있음)
+        Map<String, String> headersMap = new HashMap<>();
+        try {
+            Collections.list(request.getHeaderNames()).forEach(headerName -> {
+                String headerValue = request.getHeader(headerName);
+                headersMap.put(headerName, headerValue);
+            });
+            log.debug("🔍 헤더 맵 생성 완료: {}", headersMap.keySet());
+        } catch (Exception e) {
+            log.error("❌ 헤더 정보 수집 실패: {}", e.getMessage());
+            // 기본 User-Agent 설정
+            headersMap.put("User-Agent", "Unknown");
+        }
 
-        // 사용자 정보 (buildUnifiedLog 메서드 내부)
+        logData.put("request_headers", headersMap);
+        log.debug("🔍 request_headers 설정 완료: {}", logData.get("request_headers"));
+
+        // 사용자 정보
         if (auth != null && auth.isAuthenticated()) {
             logData.put("user_id", auth.getName());
-            // ✅ 수정된 부분
             List<String> roles = auth.getAuthorities().stream()
                     .map(GrantedAuthority::getAuthority)
                     .collect(Collectors.toList());
@@ -127,6 +138,10 @@ public class LoggingInterceptor implements HandlerInterceptor {
 
         // 문서/에러 리포트 관련 정보 추출
         extractAttributeInfo(request, logData);
+
+        // ✅ 최종 로그 데이터 확인
+        log.debug("🔍 최종 로그 데이터 키들: {}", logData.keySet());
+        log.debug("🔍 request_headers 존재 여부: {}", logData.containsKey("request_headers"));
 
         return logData;
     }
