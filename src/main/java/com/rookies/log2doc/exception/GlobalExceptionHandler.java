@@ -286,10 +286,10 @@ public class GlobalExceptionHandler {
         // ✅ 쿼리스트링이 있으면 결합, 없으면 경로만
         if (queryString != null && !queryString.trim().isEmpty()) {
             String fullUrl = requestURI + "?" + queryString;
-            log.debug("🔗 예외 처리 - 전체 URL 생성: {}", fullUrl);
+//            log.debug("🔗 예외 처리 - 전체 URL 생성: {}", fullUrl);
             return fullUrl;
         } else {
-            log.debug("🔗 예외 처리 - 경로만 URL: {}", requestURI);
+//            log.debug("🔗 예외 처리 - 경로만 URL: {}", requestURI);
             return requestURI;
         }
     }

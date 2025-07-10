@@ -106,14 +106,14 @@ public class LoggingInterceptor implements HandlerInterceptor {
                 String headerValue = request.getHeader(headerName);
                 headersMap.put(headerName, headerValue);
             });
-            log.debug("🔍 헤더 맵 생성 완료: {}", headersMap.keySet());
+//            log.debug("🔍 헤더 맵 생성 완료: {}", headersMap.keySet());
         } catch (Exception e) {
-            log.error("❌ 헤더 정보 수집 실패: {}", e.getMessage());
+//            log.error("❌ 헤더 정보 수집 실패: {}", e.getMessage());
             headersMap.put("User-Agent", "Unknown");
         }
 
         logData.put("request_headers", headersMap);
-        log.debug("🔍 request_headers 설정 완료: {}", logData.get("request_headers"));
+//        log.debug("🔍 request_headers 설정 완료: {}", logData.get("request_headers"));
 
         // 사용자 정보
         if (auth != null && auth.isAuthenticated()) {
@@ -145,8 +145,8 @@ public class LoggingInterceptor implements HandlerInterceptor {
         extractAttributeInfo(request, logData);
 
         // ✅ 최종 로그 데이터 확인
-        log.debug("🔍 최종 로그 데이터 - 전체 URL: {}", fullUrl);
-        log.debug("🔍 최종 로그 데이터 키들: {}", logData.keySet());
+//        log.debug("🔍 최종 로그 데이터 - 전체 URL: {}", fullUrl);
+//        log.debug("🔍 최종 로그 데이터 키들: {}", logData.keySet());
 
         return logData;
     }
@@ -161,10 +161,10 @@ public class LoggingInterceptor implements HandlerInterceptor {
         // ✅ 쿼리스트링이 있으면 결합, 없으면 경로만
         if (queryString != null && !queryString.trim().isEmpty()) {
             String fullUrl = requestURI + "?" + queryString;
-            log.debug("🔗 전체 URL 생성: {}", fullUrl);
+//            log.debug("🔗 전체 URL 생성: {}", fullUrl);
             return fullUrl;
         } else {
-            log.debug("🔗 경로만 URL: {}", requestURI);
+//            log.debug("🔗 경로만 URL: {}", requestURI);
             return requestURI;
         }
     } // ✅ 중괄호 추가!

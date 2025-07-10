@@ -3,7 +3,6 @@ package com.rookies.log2doc.config;
 import com.rookies.log2doc.entity.CategoryType;
 import com.rookies.log2doc.entity.Role;
 import com.rookies.log2doc.entity.User;
-import com.rookies.log2doc.entity.ErrorReport;
 import com.rookies.log2doc.repository.CategoryTypeRepository;
 import com.rookies.log2doc.repository.ErrorReportRepository;
 import com.rookies.log2doc.repository.RoleRepository;
@@ -15,7 +14,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.Arrays;
 
 /**

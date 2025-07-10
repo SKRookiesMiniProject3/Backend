@@ -77,9 +77,9 @@ class DatabaseManager:
             
             # 카테고리 매핑
             category_mapping = {
-                "NORMAL": "valid",
-                "EXCEPTION": "invalid", 
-                "ATTACK": "attack"
+                "NORMAL": "VALID",
+                "EXCEPTION": "INVALID",
+                "ATTACK": "ATTACK"
             }
             report_category = category_mapping.get(classification, "invalid")
             
