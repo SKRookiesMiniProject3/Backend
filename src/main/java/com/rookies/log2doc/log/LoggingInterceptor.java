@@ -31,37 +31,37 @@ public class LoggingInterceptor implements HandlerInterceptor {
     public void afterCompletion(HttpServletRequest request, HttpServletResponse response,
                                 Object handler, Exception ex) {
 
-        // ✅ 예외가 있으면 GlobalExceptionHandler에서 처리하므로 스킵
+        // 예외가 있으면 GlobalExceptionHandler에서 처리하므로 스킵
         if (ex != null) {
-            log.debug("❌ Interceptor: 예외 발생 → GlobalExceptionHandler에서 처리");
+            log.debug("Interceptor: 예외 발생 → GlobalExceptionHandler에서 처리");
             return;
         }
 
-        // ✅ 응답 상태가 4xx, 5xx면 예외 처리로 간주하고 스킵
+        // 응답 상태가 4xx, 5xx면 예외 처리로 간주하고 스킵
         if (response.getStatus() >= 400) {
-            log.debug("❌ Interceptor: 에러 응답 ({}초) → GlobalExceptionHandler에서 처리", response.getStatus());
+            log.debug("Interceptor: 에러 응답 ({}초) → GlobalExceptionHandler에서 처리", response.getStatus());
             return;
         }
 
-        // ✅ 인증 관련 엔드포인트는 제외
+        // 인증 관련 엔드포인트는 제외
         String requestUrl = request.getRequestURI();
         if (shouldSkipLogging(requestUrl)) {
-            log.debug("❌ Interceptor: 로깅 제외 URL → {}", requestUrl);
+            log.debug("Interceptor: 로깅 제외 URL → {}", requestUrl);
             return;
         }
 
-        // ✅ 성공 케이스만 통합 로그 생성 및 전송
+        // 성공 케이스만 통합 로그 생성 및 전송
         try {
             Map<String, Object> logData = buildUnifiedLog(request, response);
             logSender.sendLog(logData);
 
-            // ✅ 전체 URL로 로그 출력
+            // 전체 URL로 로그 출력
             String fullUrl = (String) logData.get("request_url");
-            log.info("✅ 통합 로그 전송 완료: {} {} ({})",
+            log.info("통합 로그 전송 완료: {} {} ({})",
                     request.getMethod(), fullUrl, response.getStatus());
 
         } catch (Exception e) {
-            log.error("🚨 통합 로그 처리 실패: {}", e.getMessage());
+            log.error("통합 로그 처리 실패: {}", e.getMessage());
             log.debug("통합 로그 처리 실패 상세:", e);
         }
     }
@@ -71,6 +71,7 @@ public class LoggingInterceptor implements HandlerInterceptor {
      */
     private boolean shouldSkipLogging(String requestUrl) {
         return requestUrl.startsWith("/api/v1/auth") ||     // 인증 API
+                requestUrl.startsWith("/api/v1/error-reports") ||  // 에러 리포트 API 추가
                 requestUrl.startsWith("/swagger-ui") ||       // Swagger UI
                 requestUrl.startsWith("/v3/api-docs") ||      // API Docs
                 requestUrl.startsWith("/actuator") ||         // Actuator
@@ -84,22 +85,22 @@ public class LoggingInterceptor implements HandlerInterceptor {
     private Map<String, Object> buildUnifiedLog(HttpServletRequest request, HttpServletResponse response) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 
-        // ✅ 기본 로그 데이터 생성
+        // 기본 로그 데이터 생성
         Map<String, Object> logData = new HashMap<>();
 
         // 기본 정보
         logData.put("timestamp", Instant.now().toString());
         logData.put("request_method", request.getMethod());
 
-        // ✅ 전체 URL 생성 (경로 + 쿼리스트링) - 여기가 핵심!
+        // 전체 URL 생성 (경로 + 쿼리스트링) - 여기가 핵심!
         String fullUrl = buildFullUrl(request);
         logData.put("request_url", fullUrl);  // 전체 URL 사용
 
-        // ✅ 세션 정보 안전하게 처리
+        // 세션 정보 안전하게 처리
         String sessionId = getSessionIdSafely(request);
         logData.put("session_id", sessionId);
 
-        // ✅ 헤더 정보
+        // 헤더 정보
         Map<String, String> headersMap = new HashMap<>();
         try {
             Collections.list(request.getHeaderNames()).forEach(headerName -> {
