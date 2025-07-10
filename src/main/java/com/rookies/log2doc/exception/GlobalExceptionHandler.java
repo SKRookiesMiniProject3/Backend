@@ -1,10 +1,6 @@
 package com.rookies.log2doc.exception;
 
 import com.rookies.log2doc.dto.response.MessageResponse;
-import com.rookies.log2doc.exception.AccessForbiddenException;
-import com.rookies.log2doc.exception.PermissionDeniedException;
-import com.rookies.log2doc.exception.TokenRefreshException;
-import com.rookies.log2doc.exception.UnauthenticatedException;
 import com.rookies.log2doc.log.LogBuilder;
 import com.rookies.log2doc.log.LogSender;
 import jakarta.servlet.http.HttpServletRequest;
@@ -231,6 +227,10 @@ public class GlobalExceptionHandler {
             Map<String, Object> logData = logBuilder.buildBaseLog(request,
                     SecurityContextHolder.getContext().getAuthentication());
 
+            // ✅ 전체 URL 생성 (경로 + 쿼리스트링)
+            String fullUrl = buildFullUrlForException(request);
+            logData.put("request_url", fullUrl);  // 기존 request_url 덮어쓰기
+
             logData.put("access_result", accessResult);
             logData.put("error_message", errorMessage);
             logData.put("action_type", actionType);
@@ -241,7 +241,7 @@ public class GlobalExceptionHandler {
 
             logSender.sendLog(logData);
             log.info("📡 예외 로그 전송 완료: {} {} ({})",
-                    request.getMethod(), request.getRequestURI(), statusCode);
+                    request.getMethod(), fullUrl, statusCode);
 
         } catch (Exception ex) {
             log.error("🚨 예외 로그 전송 실패: {}", ex.getMessage());
@@ -273,6 +273,24 @@ public class GlobalExceptionHandler {
         Object docId = request.getAttribute("document_id");
         if (docId != null) {
             logData.put("document_id", docId);
+        }
+    }
+
+    /**
+     * 예외 처리용 전체 URL 생성 (경로 + 쿼리스트링)
+     */
+    private String buildFullUrlForException(HttpServletRequest request) {
+        String requestURI = request.getRequestURI();
+        String queryString = request.getQueryString();
+
+        // ✅ 쿼리스트링이 있으면 결합, 없으면 경로만
+        if (queryString != null && !queryString.trim().isEmpty()) {
+            String fullUrl = requestURI + "?" + queryString;
+            log.debug("🔗 예외 처리 - 전체 URL 생성: {}", fullUrl);
+            return fullUrl;
+        } else {
+            log.debug("🔗 예외 처리 - 경로만 URL: {}", requestURI);
+            return requestURI;
         }
     }
 }

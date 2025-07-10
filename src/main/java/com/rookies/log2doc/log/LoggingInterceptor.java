@@ -54,8 +54,11 @@ public class LoggingInterceptor implements HandlerInterceptor {
         try {
             Map<String, Object> logData = buildUnifiedLog(request, response);
             logSender.sendLog(logData);
+
+            // ✅ 전체 URL로 로그 출력
+            String fullUrl = (String) logData.get("request_url");
             log.info("✅ 통합 로그 전송 완료: {} {} ({})",
-                    request.getMethod(), requestUrl, response.getStatus());
+                    request.getMethod(), fullUrl, response.getStatus());
 
         } catch (Exception e) {
             log.error("🚨 통합 로그 처리 실패: {}", e.getMessage());
@@ -76,24 +79,27 @@ public class LoggingInterceptor implements HandlerInterceptor {
     }
 
     /**
-     * 통합 로그 데이터 생성 (세션 오류 수정)
+     * 통합 로그 데이터 생성 (전체 URL 포함)
      */
     private Map<String, Object> buildUnifiedLog(HttpServletRequest request, HttpServletResponse response) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 
-        // ✅ 기본 로그 데이터 생성 (세션 정보 안전하게 처리)
+        // ✅ 기본 로그 데이터 생성
         Map<String, Object> logData = new HashMap<>();
 
         // 기본 정보
         logData.put("timestamp", Instant.now().toString());
         logData.put("request_method", request.getMethod());
-        logData.put("request_url", request.getRequestURI());
+
+        // ✅ 전체 URL 생성 (경로 + 쿼리스트링) - 여기가 핵심!
+        String fullUrl = buildFullUrl(request);
+        logData.put("request_url", fullUrl);  // 전체 URL 사용
 
         // ✅ 세션 정보 안전하게 처리
         String sessionId = getSessionIdSafely(request);
         logData.put("session_id", sessionId);
 
-        // ✅ 헤더 정보 (이 부분이 문제일 수 있음)
+        // ✅ 헤더 정보
         Map<String, String> headersMap = new HashMap<>();
         try {
             Collections.list(request.getHeaderNames()).forEach(headerName -> {
@@ -103,7 +109,6 @@ public class LoggingInterceptor implements HandlerInterceptor {
             log.debug("🔍 헤더 맵 생성 완료: {}", headersMap.keySet());
         } catch (Exception e) {
             log.error("❌ 헤더 정보 수집 실패: {}", e.getMessage());
-            // 기본 User-Agent 설정
             headersMap.put("User-Agent", "Unknown");
         }
 
@@ -140,11 +145,29 @@ public class LoggingInterceptor implements HandlerInterceptor {
         extractAttributeInfo(request, logData);
 
         // ✅ 최종 로그 데이터 확인
+        log.debug("🔍 최종 로그 데이터 - 전체 URL: {}", fullUrl);
         log.debug("🔍 최종 로그 데이터 키들: {}", logData.keySet());
-        log.debug("🔍 request_headers 존재 여부: {}", logData.containsKey("request_headers"));
 
         return logData;
     }
+
+    /**
+     * 전체 URL 생성 (경로 + 쿼리스트링)
+     */
+    private String buildFullUrl(HttpServletRequest request) {
+        String requestURI = request.getRequestURI();
+        String queryString = request.getQueryString();
+
+        // ✅ 쿼리스트링이 있으면 결합, 없으면 경로만
+        if (queryString != null && !queryString.trim().isEmpty()) {
+            String fullUrl = requestURI + "?" + queryString;
+            log.debug("🔗 전체 URL 생성: {}", fullUrl);
+            return fullUrl;
+        } else {
+            log.debug("🔗 경로만 URL: {}", requestURI);
+            return requestURI;
+        }
+    } // ✅ 중괄호 추가!
 
     /**
      * 세션 ID를 안전하게 가져오는 메서드

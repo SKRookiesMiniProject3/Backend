@@ -20,7 +20,10 @@ public class CustomAccessDeniedHandler implements AccessDeniedHandler {
     public void handle(HttpServletRequest request, HttpServletResponse response,
                        AccessDeniedException accessDeniedException) throws IOException {
 
-        log.warn("🔥 권한 부족: {}", accessDeniedException.getMessage());
+        // ✅ 전체 URL 생성
+        String fullUrl = buildFullUrl(request);
+
+        log.warn("🔥 권한 부족: {} - URL: {}", accessDeniedException.getMessage(), fullUrl);
 
         response.setStatus(HttpServletResponse.SC_FORBIDDEN);
         response.setContentType("application/json;charset=UTF-8");
@@ -29,8 +32,22 @@ public class CustomAccessDeniedHandler implements AccessDeniedHandler {
         responseBody.put("status", HttpServletResponse.SC_FORBIDDEN);
         responseBody.put("error", "Forbidden");
         responseBody.put("message", "권한이 부족합니다.");
-        responseBody.put("path", request.getRequestURI());
+        responseBody.put("path", fullUrl);  // ✅ 전체 URL 사용
 
         new ObjectMapper().writeValue(response.getOutputStream(), responseBody);
+    }
+
+    /**
+     * 전체 URL 생성 (경로 + 쿼리스트링)
+     */
+    private String buildFullUrl(HttpServletRequest request) {
+        String requestURI = request.getRequestURI();
+        String queryString = request.getQueryString();
+
+        if (queryString != null && !queryString.trim().isEmpty()) {
+            return requestURI + "?" + queryString;
+        } else {
+            return requestURI;
+        }
     }
 }
