@@ -22,26 +22,26 @@ public class LogSender {
      */
     public void sendLog(Map<String, Object> logData) {
         try {
-            // ✅ 입력 데이터 디버깅
-            log.debug("🔍 [DEBUG] 입력 로그 데이터 키들: {}", logData.keySet());
-            log.debug("🔍 [DEBUG] request_headers 원본: {}", logData.get("request_headers"));
+//            // ✅ 입력 데이터 디버깅
+//            log.debug("🔍 [DEBUG] 입력 로그 데이터 키들: {}", logData.keySet());
+//            log.debug("🔍 [DEBUG] request_headers 원본: {}", logData.get("request_headers"));
 
             // ✅ Flask가 요구하는 필드만 필터링
             Map<String, Object> filteredLogData = filterLogData(logData);
 
-            String json = objectMapper.writeValueAsString(filteredLogData);
-            log.info("📤 [TEST] Flask 전송용 JSON: {}", json);
-
-            // ✅ 필터링된 로그 확인
-            log.debug("📤 Flask 전송 로그: {}", filteredLogData);
-
-//            String response = restClient.post()
-//                    .uri("http://flask-server/logs")
-//                    .body(filteredLogData)
-//                    .retrieve()
-//                    .body(String.class);
+//            String json = objectMapper.writeValueAsString(filteredLogData);
+//            log.info("📤 [TEST] Flask 전송용 JSON: {}", json);
 //
-//            log.info("✅ Flask로 로그 전송 완료: {}", response);
+//            // ✅ 필터링된 로그 확인
+//            log.debug("📤 Flask 전송 로그: {}", filteredLogData);
+
+            String response = restClient.post()
+                    .uri("http://localhost:5001/analyze")
+                    .body(filteredLogData)
+                    .retrieve()
+                    .body(String.class);
+
+            log.info("✅ Flask로 로그 전송 완료: {}", response);
 
         } catch (Exception e) {
             log.error("🚨 Flask 로그 전송 실패: {}", e.getMessage());
@@ -108,23 +108,23 @@ public class LogSender {
 
             // ✅ User-Agent를 대소문자 구분 없이 찾기
             String userAgent = findUserAgentIgnoreCase(headersMap);
-            log.debug("🔍 [DEBUG] 추출된 User-Agent: {}", userAgent);
+//            log.debug("🔍 [DEBUG] 추출된 User-Agent: {}", userAgent);
 
             if (userAgent != null && !userAgent.trim().isEmpty()) {
                 target.put("request_headers", Map.of("User-Agent", userAgent));
-                log.debug("✅ [DEBUG] User-Agent 설정 완료");
+//                log.debug("✅ [DEBUG] User-Agent 설정 완료");
             } else {
                 // User-Agent가 없으면 기본값 설정
                 target.put("request_headers", Map.of("User-Agent", "Unknown"));
-                log.debug("⚠️ [DEBUG] User-Agent 없음, 기본값 설정");
+//                log.debug("⚠️ [DEBUG] User-Agent 없음, 기본값 설정");
             }
         } else {
             // request_headers가 없거나 Map이 아니면 기본값 설정
             target.put("request_headers", Map.of("User-Agent", "Unknown"));
-            log.warn("❌ [DEBUG] request_headers가 Map이 아님 또는 null, 기본값 설정");
+//            log.warn("❌ [DEBUG] request_headers가 Map이 아님 또는 null, 기본값 설정");
         }
 
-        log.debug("🔍 [DEBUG] 최종 target에 설정된 request_headers: {}", target.get("request_headers"));
+//        log.debug("🔍 [DEBUG] 최종 target에 설정된 request_headers: {}", target.get("request_headers"));
     }
 
     /**
