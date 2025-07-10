@@ -41,3 +41,7 @@ pathlib2==2.3.7
 
 # DB
 mysql-connector-python==9.3.0
+
+
+# 배포
+gunicorn==22.0.0

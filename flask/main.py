@@ -32,7 +32,6 @@ def log_request_info():
     else:
         logger.info(f"비JSON 요청 또는 빈 요청 본문")
 
-
 REPORT_DIRS = {
     'NORMAL': 'report/valid',
     'EXCEPTION': 'report/invalid', 
@@ -919,6 +918,11 @@ def not_found(error):
 @app.errorhandler(500)
 def internal_error(error):
     return jsonify({"error": "Internal server error"}), 500
+
+## health check  추가
+@app.route('/health', methods=['GET'])
+def health_check():
+    return "ok"
 
 if __name__ == '__main__':
     
