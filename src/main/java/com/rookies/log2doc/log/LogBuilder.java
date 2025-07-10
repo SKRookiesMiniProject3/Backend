@@ -42,19 +42,19 @@ public class LogBuilder {
             List<String> roles = auth.getAuthorities().stream()
                     .map(GrantedAuthority::getAuthority)
                     .collect(Collectors.toList());
-            logData.put("user_role", roles);  // ✅ 이 부분이 중요!
+            logData.put("user_role", roles);
         } else {
             logData.put("user_id", "anonymous");
             logData.put("user_role", Collections.singletonList("UNKNOWN"));
         }
 
-        // 🟢 기본 보안 판별 값
+        // 기본 보안 판별 값
         logData.put("security_events", Collections.emptyList());
         logData.put("threat_level", "LOW");
         logData.put("is_suspicious", false);
         logData.put("suspicious_patterns", Collections.emptyList());
 
-        // ✅ 판별 기준 기본값 (상황별로 덮어써야 함)
+        // 판별 기준 기본값 (상황별로 덮어써야 함)
         logData.put("access_result", "SUCCESS");
         logData.put("action_type", "READ");
         logData.put("response_status", 200);

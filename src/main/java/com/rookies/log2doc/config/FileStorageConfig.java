@@ -54,14 +54,14 @@ public class FileStorageConfig {
     private void setupLocalStorage() throws Exception {
         // 상대 경로로 먼저 시도
         if (createDirectoryIfNotExists(pathLocal)) {
-            log.info("✅ 로컬 저장 경로 설정 완료: {}", pathLocal.toAbsolutePath());
+            log.info("로컬 저장 경로 설정 완료: {}", pathLocal.toAbsolutePath());
             return;
         }
         
         // 상대 경로 실패 시 절대 경로 시도
         if (pathLocalAbsolute != null && createDirectoryIfNotExists(pathLocalAbsolute)) {
             pathLocal = pathLocalAbsolute;
-            log.info("✅ 로컬 저장 경로 설정 완료 (절대경로): {}", pathLocal.toAbsolutePath());
+            log.info("로컬 저장 경로 설정 완료 (절대경로): {}", pathLocal.toAbsolutePath());
             return;
         }
         
@@ -69,7 +69,7 @@ public class FileStorageConfig {
         Path tempDir = Paths.get(System.getProperty("java.io.tmpdir"), "uploads");
         if (createDirectoryIfNotExists(tempDir)) {
             pathLocal = tempDir;
-            log.warn("⚠️ 임시 디렉토리 사용: {}", pathLocal.toAbsolutePath());
+            log.warn("⚠임시 디렉토리 사용: {}", pathLocal.toAbsolutePath());
             return;
         }
         
@@ -88,7 +88,7 @@ public class FileStorageConfig {
             throw new RuntimeException("NFS 디렉토리를 생성할 수 없습니다: " + pathNfs);
         }
         
-        log.info("✅ NFS 저장 경로 설정 완료: {}", pathNfs.toAbsolutePath());
+        log.info("NFS 저장 경로 설정 완료: {}", pathNfs.toAbsolutePath());
     }
     
     /**
@@ -98,19 +98,19 @@ public class FileStorageConfig {
         try {
             if (!Files.exists(path)) {
                 Files.createDirectories(path);
-                log.info("📁 디렉토리 생성: {}", path.toAbsolutePath());
+                log.info("디렉토리 생성: {}", path.toAbsolutePath());
             }
             
             // 쓰기 권한 확인
             if (!Files.isWritable(path)) {
-                log.error("❌ 쓰기 권한 없음: {}", path.toAbsolutePath());
+                log.error("쓰기 권한 없음: {}", path.toAbsolutePath());
                 return false;
             }
             
             return true;
             
         } catch (Exception e) {
-            log.error("❌ 디렉토리 생성 실패: {}", path.toAbsolutePath(), e);
+            log.error("디렉토리 생성 실패: {}", path.toAbsolutePath(), e);
             return false;
         }
     }

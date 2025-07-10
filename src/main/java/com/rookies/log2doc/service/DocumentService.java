@@ -26,6 +26,11 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+/**
+ * DocumentService
+ * - 문서 업로드, 조회, 다운로드 등 파일 및 메타데이터 관리
+ * - 권한 체크와 카테고리 매핑 포함
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -38,7 +43,10 @@ public class DocumentService {
     private final FileStorageConfig fileStorageConfig;
 
     /**
-     * 파일 업로드 후 문서 생성 (저장 경로 개선)
+     * 파일 업로드 후 문서 엔티티 생성
+     * - 파일을 UUID+확장자로 저장
+     * - DB에는 원본 파일명, UUID(해시), 실제 경로 저장
+     * - 문서 카테고리와 권한 매핑
      */
     @Transactional
     public Document uploadDocument(
@@ -51,45 +59,37 @@ public class DocumentService {
             String userRoleName
     ) throws IOException {
 
-        // ✅ 읽기 권한 가져오기
+        // 읽기 권한 Role 조회
         Role readRole = getRoleById(readRoleId, "읽기");
 
-        // ✅ 파일 정보 처리
+        // 파일명과 UUID 해시 생성
         String originalFileName = file.getOriginalFilename();
         String extension = getFileExtension(originalFileName);
         String uuid = UUID.randomUUID().toString();
         String storedFileName = uuid + extension;
 
-        // ✅ 설정된 저장 경로 사용
+        // 저장 경로 결정
         Path uploadDir = fileStorageConfig.getActiveStoragePath();
-
-        log.info("📁 파일 저장 경로: {}", uploadDir.toAbsolutePath());
-        log.info("📄 저장할 파일명: {}", storedFileName);
-        log.info("💾 저장 방식: {}", fileStorageConfig.getStorageInfo());
-
-        // ✅ 실제 파일 저장
         Path savePath = uploadDir.resolve(storedFileName);
 
+        log.info("저장 경로: {}, 저장 파일명: {}", uploadDir.toAbsolutePath(), storedFileName);
+
+        // 실제 파일 복사
         try {
             Files.copy(file.getInputStream(), savePath, StandardCopyOption.REPLACE_EXISTING);
-            log.info("✅ 파일 저장 성공: {}", savePath.toAbsolutePath());
-
-            // 저장된 파일 크기 확인
-            long savedFileSize = Files.size(savePath);
-            log.info("📊 저장된 파일 크기: {} bytes", savedFileSize);
-
+            log.info("파일 저장 완료: {}", savePath.toAbsolutePath());
         } catch (IOException e) {
-            log.error("❌ 파일 저장 실패: {}", savePath.toAbsolutePath(), e);
-            throw new RuntimeException("파일 저장에 실패했습니다: " + e.getMessage(), e);
+            log.error("파일 저장 실패: {}", savePath.toAbsolutePath(), e);
+            throw new RuntimeException("파일 저장 실패: " + e.getMessage());
         }
 
-        // ✅ 문서 엔티티 생성
+        // 문서 엔티티 저장
         Document doc = new Document();
         doc.setTitle(title);
         doc.setContent(content);
         doc.setFileName(originalFileName);
-        doc.setFilePath(uuid);           // 해시 (UUID)
-        doc.setFilePathNfs(savePath.toString()); // 실제 저장된 물리 경로
+        doc.setFilePath(uuid);                  // 해시
+        doc.setFilePathNfs(savePath.toString()); // 실제 경로
         doc.setMimeType(file.getContentType());
         doc.setFileSize(file.getSize());
         doc.setCreatedAt(LocalDateTime.now());
@@ -97,26 +97,25 @@ public class DocumentService {
         doc.setAuthor(String.valueOf(userId));
         doc.setCreatedRole(userRoleName);
 
-        // ✅ 카테고리 FK
+        // 카테고리 FK
         CategoryType categoryType = categoryTypeRepository.findById(categoryTypeId)
                 .orElseThrow(() -> new RuntimeException("카테고리 타입 없음"));
 
-        // ✅ 문서 저장
         documentRepository.save(doc);
 
-        // ✅ 카테고리 매핑 저장
+        // 카테고리 매핑
         DocumentCategory mapping = new DocumentCategory();
         mapping.setDocument(doc);
         mapping.setCategoryType(categoryType);
         documentCategoryRepository.save(mapping);
 
-        log.info("✅ 문서 저장 완료 - ID: {}, 파일: {}", doc.getId(), originalFileName);
-
+        log.info("문서 저장 완료 - ID: {}, 파일명: {}", doc.getId(), originalFileName);
         return doc;
     }
 
     /**
-     * 문서 리스트 조회 (카테고리, 기간, 권한)
+     * 문서 목록 조회
+     * - 카테고리, 날짜, 권한 필터링 포함
      */
     @Transactional(readOnly = true)
     public List<Document> getDocumentList(Long categoryTypeId, String userRoleName, LocalDate startDate, LocalDate endDate) {
@@ -133,6 +132,9 @@ public class DocumentService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * 문서 목록 DTO 반환
+     */
     @Transactional(readOnly = true)
     public List<DocumentResponseDTO> getDocumentListAsDTO(Long categoryTypeId, String userRoleName, LocalDate startDate, LocalDate endDate) {
         List<Document> docs = (categoryTypeId != null)
@@ -145,93 +147,77 @@ public class DocumentService {
         return docs.stream()
                 .filter(doc -> userLevel >= doc.getReadRole().getName().getLevel())
                 .filter(doc -> isInDateRange(doc.getCreatedAt(), startDate, endDate))
-                .map(this::mapToDTO)  // 트랜잭션 범위 안에서 DTO 변환
+                .map(this::mapToDTO)
                 .collect(Collectors.toList());
     }
 
     /**
-     * 단일 문서 조회 (ID 기준)
+     * 단일 문서 조회 (ID)
      */
     @Transactional(readOnly = true)
     public DocumentResponseDTO getDocument(Long id, int userRoleId) {
         Document doc = documentRepository.findByIdWithRolesAndCategories(id)
                 .orElseThrow(() -> new RuntimeException("문서를 찾을 수 없습니다."));
-
         checkReadPermission(doc, userRoleId);
-
         return mapToDTO(doc);
     }
 
     /**
-     * 단일 문서 조회 (해시 기준) - 수정됨
+     * 단일 문서 조회 (해시)
      */
     @Transactional(readOnly = true)
     public DocumentResponseDTO getDocumentByHash(String hash, int userRoleId) {
         Document doc = documentRepository.findByFilePathWithRolesAndCategories(hash)
                 .orElseThrow(() -> new RuntimeException("문서를 찾을 수 없습니다."));
-
         checkReadPermission(doc, userRoleId);
-
         return mapToDTO(doc);
     }
 
     /**
-     * 파일 다운로드 (문서 ID 기준) - 저장 경로 개선
+     * 파일 다운로드 (ID)
      */
     @Transactional(readOnly = true)
     public Resource loadFileAsResource(Long id, int userRoleId) throws MalformedURLException {
         Document doc = documentRepository.findByIdWithRoles(id)
                 .orElseThrow(() -> new RuntimeException("문서를 찾을 수 없습니다."));
         checkReadPermission(doc, userRoleId);
-
         return loadFileResourceByDocument(doc);
     }
 
     /**
-     * 파일 다운로드 (해시 경로 기준) - 수정됨
+     * 파일 다운로드 (해시)
      */
     @Transactional(readOnly = true)
     public Resource loadFileAsResourceByHash(String hash, int userRoleId) throws MalformedURLException {
         Document doc = documentRepository.findByFilePathWithRoles(hash)
                 .orElseThrow(() -> new RuntimeException("파일을 찾을 수 없습니다."));
-
         checkReadPermission(doc, userRoleId);
-
         return loadFileResourceByDocument(doc);
     }
 
     /**
-     * 공통 파일 리소스 로드 메서드 (중복 제거)
+     * 실제 파일 리소스 로드 공통 처리
      */
     private Resource loadFileResourceByDocument(Document doc) throws MalformedURLException {
         String extension = getFileExtension(doc.getFileName());
-
-        // ✅ 설정된 저장 경로에서 파일 로드
         Path uploadDir = fileStorageConfig.getActiveStoragePath();
         Path filePath = uploadDir.resolve(doc.getFilePath() + extension);
 
-        log.info("📂 파일 로드 시도: {}", filePath.toAbsolutePath());
-
         if (!Files.exists(filePath)) {
-            log.error("❌ 파일이 존재하지 않음: {}", filePath.toAbsolutePath());
-            throw new RuntimeException("파일이 존재하지 않습니다: " + filePath.toAbsolutePath());
+            throw new RuntimeException("파일이 존재하지 않습니다: " + filePath);
         }
-
         if (!Files.isReadable(filePath)) {
-            log.error("❌ 파일 읽기 권한 없음: {}", filePath.toAbsolutePath());
-            throw new RuntimeException("파일을 읽을 수 없습니다: " + filePath.toAbsolutePath());
+            throw new RuntimeException("파일을 읽을 수 없습니다: " + filePath);
         }
 
-        log.info("✅ 파일 로드 성공: {}", filePath.toAbsolutePath());
         return new UrlResource(filePath.toUri());
     }
 
     /**
-     * DTO 변환 메서드
+     * Document → DTO 변환
      */
     @Transactional(readOnly = true)
     public DocumentResponseDTO mapToDTO(Document doc) {
-        // 카테고리 DTO 변환
         List<CategoryTypeDTO> categories = doc.getDocumentCategories().stream()
                 .map(dc -> {
                     CategoryType ct = dc.getCategoryType();
@@ -240,10 +226,8 @@ public class DocumentService {
                             .name(ct.getName())
                             .description(ct.getDescription())
                             .build();
-                })
-                .collect(Collectors.toList());
+                }).collect(Collectors.toList());
 
-        // Role DTO 변환
         RoleDTO readRole = RoleDTO.builder()
                 .id(doc.getReadRole().getId())
                 .name(doc.getReadRole().getName().name())
@@ -266,21 +250,17 @@ public class DocumentService {
                 .build();
     }
 
-    // ========================================
-    // ✅ 헬퍼 메서드들 (중복 제거 및 정리)
-    // ========================================
+    // ===================================
+    // 내부 유틸리티 메서드
+    // ===================================
 
-    /**
-     * Role ID로 Role 엔티티 조회
-     */
+    /** Role 조회 */
     private Role getRoleById(Long roleId, String roleType) {
         return roleRepository.findById(roleId)
                 .orElseThrow(() -> new RuntimeException(roleType + " 권한 Role 없음"));
     }
 
-    /**
-     * 읽기 권한 체크
-     */
+    /** 읽기 권한 체크 */
     private void checkReadPermission(Document doc, int userRoleId) {
         int requiredLevel = doc.getReadRole().getName().getLevel();
         if (userRoleId < requiredLevel) {
@@ -288,31 +268,14 @@ public class DocumentService {
         }
     }
 
-    /**
-     * 권한 체크 (사용되지 않는 메서드 - 필요시 제거)
-     */
-    private void checkPermission(Role requiredRole, String userRoleName, String action) {
-        Role.RoleName userRoleEnum = Role.RoleName.valueOf(userRoleName);
-        int userLevel = userRoleEnum.getLevel();
-        int requiredLevel = requiredRole.getName().getLevel();
-
-        if (!userRoleEnum.equals(Role.RoleName.CEO) && userLevel < requiredLevel) {
-            throw new PermissionDeniedException(action + " 권한이 없습니다!");
-        }
-    }
-
-    /**
-     * 파일 확장자 추출
-     */
+    /** 파일 확장자 추출 */
     private String getFileExtension(String filename) {
         return filename != null && filename.contains(".")
                 ? filename.substring(filename.lastIndexOf("."))
                 : "";
     }
 
-    /**
-     * 날짜 범위 체크
-     */
+    /** 생성일이 지정한 날짜 범위에 포함되는지 여부 */
     private boolean isInDateRange(LocalDateTime createdAt, LocalDate startDate, LocalDate endDate) {
         if (createdAt == null) return false;
         if (startDate != null && createdAt.toLocalDate().isBefore(startDate)) return false;

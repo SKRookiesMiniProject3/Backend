@@ -50,28 +50,28 @@ public class DocumentController {
     ) throws IOException {
         
 
-        // ✅ DTO에서 데이터 추출
+        // DTO에서 데이터 추출
         MultipartFile file = request.getFile();
         String title = request.getTitle();
         String content = request.getContent();
         Long categoryTypeId = request.getCategoryTypeId();
         Long readRoleId = request.getReadRoleId();
 
-        // ✅ 현재 사용자 직급 레벨 가져오기
+        // 현재 사용자 직급 레벨 가져오기
         int userLevel = userDetails.getRoleId();
 
-        // ✅ 업로드 대상 읽기 권한 Role 불러오기
+        // 업로드 대상 읽기 권한 Role 불러오기
         Role readRole = roleRepository.findById(readRoleId)
                 .orElseThrow(() -> new RuntimeException("권한 정보가 없습니다."));
 
         int targetRoleLevel = readRole.getName().getLevel();
 
-        // ✅ 직급 비교: 내 레벨보다 높은 직급이면 차단!
+        // 직급 비교: 내 레벨보다 높은 직급이면 차단!
         if (targetRoleLevel > userLevel) {
             throw new PermissionDeniedException("내 직급보다 높은 접근 권한은 설정할 수 없습니다!");
         }
 
-        // ✅ 통과 시 서비스 호출
+        // 통과 시 서비스 호출
         Document saved = documentService.uploadDocument(
                 file,
                 title,
@@ -82,7 +82,7 @@ public class DocumentController {
                 userDetails.getRoleName()
         );
 
-        // ✅ Request Attribute 설정 (Interceptor에서 사용)
+        // Request Attribute 설정 (Interceptor에서 사용)
         servletRequest.setAttribute("document_id", saved.getId());
         servletRequest.setAttribute("document_owner", saved.getAuthor());
 
@@ -124,7 +124,7 @@ public class DocumentController {
     ) {
         DocumentResponseDTO doc = documentService.getDocumentByHash(hash, userDetails.getRoleId());
 
-        // ✅ Request Attribute 설정
+        // Request Attribute 설정
         request.setAttribute("document_id", doc.getId());
         request.setAttribute("document_owner", doc.getOwner());
         request.setAttribute("document_hash", hash);
@@ -141,12 +141,12 @@ public class DocumentController {
             @AuthenticationPrincipal UserDetailsImpl userDetails,
             HttpServletRequest request
     ) {
-        // ✅ Request Attribute 설정
+        // Request Attribute 설정
         request.setAttribute("document_id", id);
 
         DocumentResponseDTO doc = documentService.getDocument(id, userDetails.getRoleId());
 
-        // ✅ 추가 정보 설정
+        // 추가 정보 설정
         request.setAttribute("document_owner", doc.getOwner());
 
         return ResponseEntity.ok(doc);
@@ -165,7 +165,7 @@ public class DocumentController {
         Resource fileResource = documentService.loadFileAsResource(id, userDetails.getRoleId());
         DocumentResponseDTO doc = documentService.getDocument(id, userDetails.getRoleId());
 
-        // ✅ Request Attribute 설정
+        // Request Attribute 설정
         request.setAttribute("document_id", doc.getId());
         request.setAttribute("document_owner", doc.getOwner());
 
@@ -184,13 +184,13 @@ public class DocumentController {
             @AuthenticationPrincipal UserDetailsImpl userDetails,
             HttpServletRequest request
     ) {
-        // ✅ Request Attribute 설정
+        // Request Attribute 설정
         request.setAttribute("document_id", id);
 
         // 권한 체크 포함 단일 조회
         DocumentResponseDTO doc = documentService.getDocument(id, userDetails.getRoleId());
 
-        // ✅ 추가 정보 설정
+        // 추가 정보 설정
         request.setAttribute("document_owner", doc.getOwner());
 
         Map<String, Object> result = Map.of(

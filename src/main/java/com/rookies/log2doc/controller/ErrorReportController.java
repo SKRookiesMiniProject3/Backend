@@ -31,7 +31,7 @@ public class ErrorReportController {
     // 대시보드/통계 API
     // ========================================
 
-    // ✅ 일별 에러 카운트
+    // 일별 에러 카운트
     @GetMapping("/analytics/daily-count")
     @Operation(summary = "일별 에러 카운트 조회", description = "날짜별 에러 발생 개수를 조회합니다.")
     public ResponseEntity<List<ErrorCountPerDayDTO>> getDailyCounts(HttpServletRequest request) {
@@ -43,7 +43,7 @@ public class ErrorReportController {
         return ResponseEntity.ok(counts);
     }
 
-    // ✅ 리포트 상태별 통계
+    // 리포트 상태별 통계
     @GetMapping("/analytics/statistics")
     @Operation(summary = "리포트 통계 조회", description = "리포트 상태별 통계를 조회합니다.")
     public ResponseEntity<ApiResponse<Map<String, Long>>> getReportStatistics(HttpServletRequest request) {
@@ -69,7 +69,7 @@ public class ErrorReportController {
         }
     }
 
-    // ✅ 카테고리별 통계 (AI 분류 결과)
+    // 카테고리별 통계 (AI 분류 결과)
     @GetMapping("/analytics/category-statistics")
     @Operation(summary = "카테고리별 리포트 통계", description = "AI가 분류한 카테고리별 에러 리포트 개수를 조회합니다.")
     public ResponseEntity<ApiResponse<Map<String, Long>>> getCategoryStatistics(HttpServletRequest request) {
@@ -95,7 +95,7 @@ public class ErrorReportController {
         }
     }
 
-    // ✅ 최근 공격 탐지 건수
+    // 최근 공격 탐지 건수
     @GetMapping("/analytics/recent-attacks")
     @Operation(summary = "최근 공격 탐지 건수", description = "최근 N일간의 공격 탐지 건수를 조회합니다.")
     public ResponseEntity<ApiResponse<Long>> getRecentAttackCount(
@@ -128,7 +128,7 @@ public class ErrorReportController {
     // 목록 조회 API (AI가 생성한 데이터 조회)
     // ========================================
 
-    // ✅ 최신순 리스트
+    // 최신순 리스트
     @GetMapping("/list/latest")
     @Operation(summary = "최신 에러 리스트 조회", description = "AI가 생성한 최신순 에러 리포트를 조회합니다.")
     public ResponseEntity<List<ErrorReportDTO>> getLatestReports(HttpServletRequest request) {
@@ -140,7 +140,7 @@ public class ErrorReportController {
         return ResponseEntity.ok(reports);
     }
 
-    // ✅ 진행중인 리포트 조회
+    // 진행중인 리포트 조회
     @GetMapping("/list/in-progress")
     @Operation(summary = "진행중인 리포트 조회", description = "현재 진행중인 에러 리포트를 조회합니다.")
     public ResponseEntity<List<ErrorReportDTO>> getInProgressReports(HttpServletRequest request) {
@@ -152,7 +152,7 @@ public class ErrorReportController {
         return ResponseEntity.ok(reports);
     }
 
-    // ✅ 완료된 리포트 조회
+    // 완료된 리포트 조회
     @GetMapping("/list/completed")
     @Operation(summary = "완료된 리포트 조회", description = "완료된 에러 리포트를 조회합니다.")
     public ResponseEntity<List<ErrorReportDTO>> getCompletedReports(HttpServletRequest request) {
@@ -164,7 +164,7 @@ public class ErrorReportController {
         return ResponseEntity.ok(reports);
     }
 
-    // ✅ 시작되지 않은 리포트 조회
+    // 시작되지 않은 리포트 조회
     @GetMapping("/list/not-started")
     @Operation(summary = "시작되지 않은 리포트 조회", description = "아직 시작되지 않은 에러 리포트를 조회합니다.")
     public ResponseEntity<List<ErrorReportDTO>> getNotStartedReports(HttpServletRequest request) {
@@ -180,7 +180,7 @@ public class ErrorReportController {
     // 카테고리별 조회 API (AI 분류 결과)
     // ========================================
 
-    // ✅ 공격 탐지 리포트 조회 (AI가 분류한 중요 데이터!)
+    // 공격 탐지 리포트 조회 (AI가 분류한 중요 데이터!)
     @GetMapping("/list/attacks")
     @Operation(summary = "공격 탐지 리포트 조회", description = "AI가 공격으로 분류한 에러 리포트를 조회합니다.")
     public ResponseEntity<List<ErrorReportDTO>> getAttackReports(HttpServletRequest request) {
@@ -195,7 +195,7 @@ public class ErrorReportController {
         return ResponseEntity.ok(reports);
     }
 
-    // ✅ 정상 리포트 조회
+    // 정상 리포트 조회
     @GetMapping("/list/valid")
     @Operation(summary = "정상 리포트 조회", description = "AI가 정상으로 분류한 에러 리포트를 조회합니다.")
     public ResponseEntity<List<ErrorReportDTO>> getValidReports(HttpServletRequest request) {
@@ -207,7 +207,7 @@ public class ErrorReportController {
         return ResponseEntity.ok(reports);
     }
 
-    // ✅ 비정상 리포트 조회
+    // 비정상 리포트 조회
     @GetMapping("/list/invalid")
     @Operation(summary = "비정상 리포트 조회", description = "AI가 비정상으로 분류한 에러 리포트를 조회합니다.")
     public ResponseEntity<List<ErrorReportDTO>> getInvalidReports(HttpServletRequest request) {
@@ -223,7 +223,7 @@ public class ErrorReportController {
     // 검색/필터 API
     // ========================================
 
-    // ✅ 기간별 조회
+    // 기간별 조회
     @GetMapping("/list/by-date-range")
     @Operation(summary = "기간별 리포트 조회", description = "특정 기간의 에러 리포트를 조회합니다.")
     public ResponseEntity<List<ErrorReportDTO>> getReportsByDateRange(
@@ -244,7 +244,7 @@ public class ErrorReportController {
     // 단일 조회 API
     // ========================================
 
-    // ✅ 에러 리포트 상세 조회 (ID 기준)
+    // 에러 리포트 상세 조회 (ID 기준)
     @GetMapping("/{id}")
     @Operation(summary = "에러 리포트 상세 조회", description = "특정 에러 리포트의 상세 정보를 조회합니다.")
     public ResponseEntity<ApiResponse<ErrorReportDTO>> getReportById(
@@ -277,8 +277,7 @@ public class ErrorReportController {
         }
     }
 
-    // 추가
-    // ✅ 에러 리포트 코멘트 수정
+    // 에러 리포트 코멘트 수정
     @PatchMapping("/{id}/comment")
     @Operation(summary = "에러 리포트 코멘트 수정", description = "에러 리포트의 코멘트를 수정합니다.")
     public ResponseEntity<ApiResponse<ErrorReportDTO>> updateComment(
@@ -311,7 +310,7 @@ public class ErrorReportController {
         }
     }
 
-    // ✅ 상태를 "시작 안함"으로 변경
+    // 상태를 "시작 안함"으로 변경
     @PatchMapping("/{id}/status/not-started")
     @Operation(summary = "리포트 상태를 '시작 안함'으로 변경", description = "관리자 페이지에서 리포트를 초기 상태로 되돌립니다.")
     public ResponseEntity<ApiResponse<ErrorReportDTO>> setStatusNotStarted(
@@ -324,7 +323,7 @@ public class ErrorReportController {
             request.setAttribute("error_report_action", "status_reset");
             request.setAttribute("new_status", "NOT_STARTED");
 
-            log.info("🔄 리포트 상태 리셋 - ID: {}", id);
+            log.info("리포트 상태 리셋 - ID: {}", id);
 
             return ResponseEntity.ok(ApiResponse.<ErrorReportDTO>builder()
                     .success(true)
@@ -345,7 +344,7 @@ public class ErrorReportController {
         }
     }
 
-    // ✅ 상태를 "진행중"으로 변경
+    // 상태를 "진행중"으로 변경
     @PatchMapping("/{id}/status/in-progress")
     @Operation(summary = "리포트 상태를 '진행중'으로 변경", description = "관리자 페이지에서 리포트 처리를 시작합니다.")
     public ResponseEntity<ApiResponse<ErrorReportDTO>> setStatusInProgress(
@@ -360,9 +359,9 @@ public class ErrorReportController {
 
             // 공격 카테고리면 특별 로그
             if ("ATTACK".equals(updated.getReportCategory())) {
-                log.warn("🚨 공격 리포트 처리 시작! - ID: {}", id);
+                log.warn("공격 리포트 처리 시작! - ID: {}", id);
             } else {
-                log.info("▶️ 리포트 처리 시작 - ID: {}", id);
+                log.info("▶리포트 처리 시작 - ID: {}", id);
             }
 
             return ResponseEntity.ok(ApiResponse.<ErrorReportDTO>builder()
@@ -384,7 +383,7 @@ public class ErrorReportController {
         }
     }
 
-    // ✅ 상태를 "완료"로 변경
+    // 상태를 "완료"로 변경
     @PatchMapping("/{id}/status/completed")
     @Operation(summary = "리포트 상태를 '완료'로 변경", description = "관리자 페이지에서 리포트 처리를 완료합니다.")
     public ResponseEntity<ApiResponse<ErrorReportDTO>> setStatusCompleted(
@@ -405,9 +404,9 @@ public class ErrorReportController {
 
             // 공격 카테고리면 특별 로그
             if ("ATTACK".equals(updated.getReportCategory())) {
-                log.warn("✅ 공격 리포트 처리 완료! - ID: {}", id);
+                log.warn("공격 리포트 처리 완료! - ID: {}", id);
             } else {
-                log.info("✅ 리포트 처리 완료 - ID: {}", id);
+                log.info("리포트 처리 완료 - ID: {}", id);
             }
 
             return ResponseEntity.ok(ApiResponse.<ErrorReportDTO>builder()
@@ -429,7 +428,7 @@ public class ErrorReportController {
         }
     }
 
-    // ✅ 에러 리포트 삭제 (소프트 삭제)
+    // 에러 리포트 삭제 (소프트 삭제)
     @DeleteMapping("/{id}")
     @Operation(summary = "에러 리포트 삭제", description = "에러 리포트를 삭제합니다 (소프트 삭제).")
     public ResponseEntity<ApiResponse<Void>> deleteReport(

@@ -106,14 +106,14 @@ public class LoggingInterceptor implements HandlerInterceptor {
                 String headerValue = request.getHeader(headerName);
                 headersMap.put(headerName, headerValue);
             });
-//            log.debug("🔍 헤더 맵 생성 완료: {}", headersMap.keySet());
+//            log.debug("헤더 맵 생성 완료: {}", headersMap.keySet());
         } catch (Exception e) {
-//            log.error("❌ 헤더 정보 수집 실패: {}", e.getMessage());
+//            log.error("헤더 정보 수집 실패: {}", e.getMessage());
             headersMap.put("User-Agent", "Unknown");
         }
 
         logData.put("request_headers", headersMap);
-//        log.debug("🔍 request_headers 설정 완료: {}", logData.get("request_headers"));
+//        log.debug("request_headers 설정 완료: {}", logData.get("request_headers"));
 
         // 사용자 정보
         if (auth != null && auth.isAuthenticated()) {
@@ -144,9 +144,9 @@ public class LoggingInterceptor implements HandlerInterceptor {
         // 문서/에러 리포트 관련 정보 추출
         extractAttributeInfo(request, logData);
 
-        // ✅ 최종 로그 데이터 확인
-//        log.debug("🔍 최종 로그 데이터 - 전체 URL: {}", fullUrl);
-//        log.debug("🔍 최종 로그 데이터 키들: {}", logData.keySet());
+        // 최종 로그 데이터 확인
+//        log.debug("최종 로그 데이터 - 전체 URL: {}", fullUrl);
+//        log.debug("최종 로그 데이터 키들: {}", logData.keySet());
 
         return logData;
     }
@@ -158,39 +158,39 @@ public class LoggingInterceptor implements HandlerInterceptor {
         String requestURI = request.getRequestURI();
         String queryString = request.getQueryString();
 
-        // ✅ 쿼리스트링이 있으면 결합, 없으면 경로만
+        // 쿼리스트링이 있으면 결합, 없으면 경로만
         if (queryString != null && !queryString.trim().isEmpty()) {
             String fullUrl = requestURI + "?" + queryString;
-//            log.debug("🔗 전체 URL 생성: {}", fullUrl);
+//            log.debug("전체 URL 생성: {}", fullUrl);
             return fullUrl;
         } else {
-//            log.debug("🔗 경로만 URL: {}", requestURI);
+//            log.debug("경로만 URL: {}", requestURI);
             return requestURI;
         }
-    } // ✅ 중괄호 추가!
+    }
 
     /**
      * 세션 ID를 안전하게 가져오는 메서드
      */
     private String getSessionIdSafely(HttpServletRequest request) {
         try {
-            // ✅ 기존 세션만 가져오기 (새로 생성하지 않음)
+            // 기존 세션만 가져오기 (새로 생성하지 않음)
             HttpSession existingSession = request.getSession(false);
             if (existingSession != null) {
                 return existingSession.getId();
             }
 
-            // ✅ 세션이 없으면 요청 ID나 다른 식별자 사용
+            // 세션이 없으면 요청 ID나 다른 식별자 사용
             String requestId = request.getHeader("X-Request-ID");
             if (requestId != null) {
                 return "req_" + requestId;
             }
 
-            // ✅ 마지막 수단: 현재 시간 기반 ID 생성
+            // 마지막 수단: 현재 시간 기반 ID 생성
             return "temp_" + System.currentTimeMillis();
 
         } catch (IllegalStateException e) {
-            // ✅ 세션 생성 불가 시 임시 ID 사용
+            // 세션 생성 불가 시 임시 ID 사용
             log.debug("세션 접근 불가, 임시 ID 사용: {}", e.getMessage());
             return "no_session_" + System.currentTimeMillis();
         }
