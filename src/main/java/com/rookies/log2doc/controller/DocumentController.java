@@ -48,7 +48,7 @@ public class DocumentController {
             @AuthenticationPrincipal UserDetailsImpl userDetails,
             HttpServletRequest servletRequest
     ) throws IOException {
-        
+
 
         // DTO에서 데이터 추출
         MultipartFile file = request.getFile();

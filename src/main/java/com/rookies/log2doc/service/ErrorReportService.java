@@ -6,6 +6,7 @@ import com.rookies.log2doc.entity.ErrorReport;
 import com.rookies.log2doc.repository.ErrorReportRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -78,6 +79,28 @@ public class ErrorReportService {
                 .stream()
                 .map(this::toDTO)
                 .collect(Collectors.toList());
+    }
+
+    // ========================================
+    // 전체 조회 메소드
+    // ========================================
+
+    /**
+     * 전체 에러 리포트 조회 (리스트 형태)
+     */
+    public List<ErrorReportDTO> getAllReportsList() {
+        try {
+            // 삭제되지 않은 리포트만 조회 (기존 패턴과 동일)
+            List<ErrorReport> errorReports = errorReportRepository.findByIsDeletedFalseOrderByCreatedDtDesc();
+
+            return errorReports.stream()
+                    .map(this::toDTO)
+                    .collect(Collectors.toList());
+
+        } catch (Exception e) {
+            log.error("전체 에러 리포트 리스트 조회 실패", e);
+            throw new RuntimeException("전체 에러 리포트 리스트 조회 중 오류가 발생했습니다", e);
+        }
     }
 
     // ===============================

@@ -3,12 +3,14 @@ package com.rookies.log2doc.controller;
 import com.rookies.log2doc.dto.ErrorCountPerDayDTO;
 import com.rookies.log2doc.dto.ErrorReportDTO;
 import com.rookies.log2doc.dto.response.ApiResponse;
+import com.rookies.log2doc.entity.ErrorReport;
 import com.rookies.log2doc.service.ErrorReportService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/error-reports")
@@ -127,6 +130,20 @@ public class ErrorReportController {
     // ========================================
     // 목록 조회 API (AI가 생성한 데이터 조회)
     // ========================================
+
+    /**
+     * 전체 에러 리포트 조회 (리스트 형태)
+     */
+    @GetMapping("/list/all")
+    @Operation(summary = "전체 에러 리포트 리스트 조회", description = "모든 에러 리포트를 리스트 형태로 조회합니다.")
+    public ResponseEntity<List<ErrorReportDTO>> getAllReportsList(HttpServletRequest request) {
+        List<ErrorReportDTO> reports = errorReportService.getAllReportsList();
+
+        request.setAttribute("error_report_action", "all_reports_list");
+        request.setAttribute("result_count", reports.size());
+
+        return ResponseEntity.ok(reports);
+    }
 
     // 최신순 리스트
     @GetMapping("/list/latest")
