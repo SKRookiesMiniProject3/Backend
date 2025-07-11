@@ -44,13 +44,13 @@ public class FileStorageConfig {
             // NFS 디렉토리 생성 및 권한 확인
             setupNfsStorage();
 
-            log.info("=== ✅ NFS 저장 설정 완료: {} ===", nfsStoragePath.toAbsolutePath());
+            log.info("=== NFS 저장 설정 완료: {} ===", nfsStoragePath.toAbsolutePath());
 
             // 쓰기 권한 테스트
             testWritePermission(nfsStoragePath);
 
         } catch (Exception e) {
-            log.error("❌ NFS 저장 설정 실패", e);
+            log.error("NFS 저장 설정 실패", e);
             throw new RuntimeException("NFS 저장 설정이 필수입니다: " + e.getMessage(), e);
         }
     }
@@ -63,7 +63,7 @@ public class FileStorageConfig {
             throw new RuntimeException("NFS 디렉토리를 생성할 수 없습니다: " + nfsStoragePath);
         }
 
-        log.info("✅ NFS 디렉토리 준비 완료: {}", nfsStoragePath.toAbsolutePath());
+        log.info("NFS 디렉토리 준비 완료: {}", nfsStoragePath.toAbsolutePath());
     }
 
     /**
@@ -73,19 +73,19 @@ public class FileStorageConfig {
         try {
             if (!Files.exists(path)) {
                 Files.createDirectories(path);
-                log.info("📁 NFS 디렉토리 생성: {}", path.toAbsolutePath());
+                log.info("NFS 디렉토리 생성: {}", path.toAbsolutePath());
             }
 
             // 쓰기 권한 확인
             if (!Files.isWritable(path)) {
-                log.error("❌ NFS 디렉토리 쓰기 권한 없음: {}", path.toAbsolutePath());
+                log.error("NFS 디렉토리 쓰기 권한 없음: {}", path.toAbsolutePath());
                 return false;
             }
 
             return true;
 
         } catch (Exception e) {
-            log.error("❌ NFS 디렉토리 생성 실패: {}", path.toAbsolutePath(), e);
+            log.error("NFS 디렉토리 생성 실패: {}", path.toAbsolutePath(), e);
             return false;
         }
     }
@@ -98,9 +98,9 @@ public class FileStorageConfig {
             Path testFile = path.resolve("nfs_write_test_" + System.currentTimeMillis() + ".tmp");
             Files.write(testFile, "NFS 쓰기 테스트".getBytes());
             Files.delete(testFile);
-            log.info("✅ NFS 쓰기 권한 테스트 성공: {}", path);
+            log.info("NFS 쓰기 권한 테스트 성공: {}", path);
         } catch (Exception e) {
-            log.error("❌ NFS 쓰기 권한 테스트 실패: {}", path, e);
+            log.error("NFS 쓰기 권한 테스트 실패: {}", path, e);
             throw new RuntimeException("NFS 저장 경로에 쓰기 권한이 없습니다: " + path, e);
         }
     }
