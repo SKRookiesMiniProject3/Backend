@@ -15,6 +15,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.File;
+import java.io.InputStream;
+import java.net.URI;
+import java.net.URL;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.nio.file.Files;
@@ -199,19 +203,108 @@ public class DocumentService {
      * 실제 파일 리소스 로드 공통 처리
      */
     private Resource loadFileResourceByDocument(Document doc) throws MalformedURLException {
-        String extension = getFileExtension(doc.getFileName());
+        // 🔥 핵심 수정: 파일 경로 생성 방식 변경
+        String originalFileName = doc.getFileName();
+        String extension = getFileExtension(originalFileName);
+        String uuid = doc.getFilePath();  // DB에 저장된 UUID
+
         Path uploadDir = fileStorageConfig.getActiveStoragePath();
-        Path filePath = uploadDir.resolve(doc.getFilePath() + extension);
 
+        // ✅ 올바른 파일 경로: uuid + 확장자
+        String storedFileName = uuid + extension;
+        Path filePath = uploadDir.resolve(storedFileName);
+
+        log.info("파일 다운로드 요청 - 원본명: {}, 저장명: {}, 전체경로: {}",
+                originalFileName, storedFileName, filePath.toAbsolutePath());
+
+        // 파일 존재 여부 체크
         if (!Files.exists(filePath)) {
-            throw new RuntimeException("파일이 존재하지 않습니다: " + filePath);
-        }
-        if (!Files.isReadable(filePath)) {
-            throw new RuntimeException("파일을 읽을 수 없습니다: " + filePath);
+            log.error("파일이 존재하지 않습니다: {}", filePath.toAbsolutePath());
+            throw new RuntimeException("파일이 존재하지 않습니다: " + originalFileName);
         }
 
-        return new UrlResource(filePath.toUri());
+        if (!Files.isReadable(filePath)) {
+            log.error("파일을 읽을 수 없습니다: {}", filePath.toAbsolutePath());
+            throw new RuntimeException("파일을 읽을 수 없습니다: " + originalFileName);
+        }
+
+        // ✅ UrlResource로 파일 스트림 생성
+        Resource resource = new UrlResource(filePath.toUri());
+
+        // 🔥 추가: 파일명을 원본 파일명으로 설정하기 위한 래핑
+        return new CustomFileResource(resource, originalFileName);
     }
+
+    /**
+     * 원본 파일명을 유지하기 위한 커스텀 Resource 래퍼
+     * 📍 이 클래스를 DocumentService 클래스 맨 아래에 추가하세요!
+     */
+    private static class CustomFileResource implements Resource {
+        private final Resource delegate;
+        private final String originalFilename;
+
+        public CustomFileResource(Resource delegate, String originalFilename) {
+            this.delegate = delegate;
+            this.originalFilename = originalFilename;
+        }
+
+        @Override
+        public String getFilename() {
+            return originalFilename;  // 원본 파일명 반환
+        }
+
+        // 나머지 메서드들은 위임
+        @Override
+        public InputStream getInputStream() throws IOException {
+            return delegate.getInputStream();
+        }
+
+        @Override
+        public boolean exists() {
+            return delegate.exists();
+        }
+
+        @Override
+        public boolean isReadable() {
+            return delegate.isReadable();
+        }
+
+        @Override
+        public long contentLength() throws IOException {
+            return delegate.contentLength();
+        }
+
+        @Override
+        public long lastModified() throws IOException {
+            return delegate.lastModified();
+        }
+
+        @Override
+        public Resource createRelative(String relativePath) throws IOException {
+            return delegate.createRelative(relativePath);
+        }
+
+        @Override
+        public String getDescription() {
+            return delegate.getDescription();
+        }
+
+        @Override
+        public File getFile() throws IOException {
+            return delegate.getFile();
+        }
+
+        @Override
+        public URL getURL() throws IOException {
+            return delegate.getURL();
+        }
+
+        @Override
+        public URI getURI() throws IOException {
+            return delegate.getURI();
+        }
+    }
+
 
     /**
      * Document → DTO 변환
