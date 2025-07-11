@@ -22,9 +22,18 @@ public class FlaskReportService {
     // RestClient는 HTTP 요청 전송 전용
     private final RestClient restClient;
 
-    // application.properties 에서 Flask URL 설정값 주입 (없으면 기본 localhost)
-    @Value("${flask.url:http://localhost:5000}")
+    // Flask 설정값 주입
+    @Value("${flask.base.url}")
     private String flaskBaseUrl;
+
+    @Value("${flask.endpoint.receive-report}")
+    private String receiveReportEndpoint;
+
+    @Value("${flask.endpoint.analyze}")
+    private String analyzeEndpoint;
+
+    @Value("${flask.endpoint.analyze-advanced}")
+    private String analyzeAdvancedEndpoint;
 
     /**
      * 실제 에러 리포트 전송 메서드
@@ -35,6 +44,7 @@ public class FlaskReportService {
      */
     public void sendErrorReportToFlask(Map<String, Object> errorData) {
         try {
+            // 에러 리포트 전용 엔드포인트 (아직 정의 안됨, 필요시 properties에 추가)
             String flaskUrl = flaskBaseUrl + "/api/error-reports";
 
             // POST 요청 실행 (JSON)
@@ -48,7 +58,8 @@ public class FlaskReportService {
             log.info("Flask 에러 리포트 전송 성공: {}", response);
 
         } catch (Exception e) {
-            log.error("Flask 에러 리포트 전송 실패", e);
+            log.error("Flask 에러 리포트 전송 실패 (URL: {}/api/error-reports): {}",
+                    flaskBaseUrl, e.getMessage());
             throw new RuntimeException("Flask 전송 실패: " + e.getMessage());
         }
     }

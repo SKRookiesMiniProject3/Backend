@@ -3,6 +3,7 @@ package com.rookies.log2doc.log;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -16,6 +17,13 @@ public class LogSender {
 
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
+
+    // Flask 설정값 주입
+    @Value("${flask.base.url}")
+    private String flaskBaseUrl;
+
+    @Value("${flask.endpoint.analyze}")
+    private String analyzeEndpoint;
 
     /**
      * Flask 요구사항에 맞는 필드만 필터링해서 전송
@@ -35,8 +43,11 @@ public class LogSender {
 //            // ✅ 필터링된 로그 확인
 //            log.debug("📤 Flask 전송 로그: {}", filteredLogData);
 
+            // Flask URL 동적 구성
+            String flaskUrl = flaskBaseUrl + analyzeEndpoint;
+
             String response = restClient.post()
-                    .uri("http://localhost:5001/analyze")
+                    .uri(flaskUrl)
                     .body(filteredLogData)
                     .retrieve()
                     .body(String.class);
@@ -44,7 +55,8 @@ public class LogSender {
             log.info("✅ Flask로 로그 전송 완료: {}", response);
 
         } catch (Exception e) {
-            log.error("🚨 Flask 로그 전송 실패: {}", e.getMessage());
+            log.error("🚨 Flask 로그 전송 실패 (URL: {}{}): {}",
+                    flaskBaseUrl, analyzeEndpoint, e.getMessage());
         }
     }
 
