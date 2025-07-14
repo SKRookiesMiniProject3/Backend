@@ -9,7 +9,12 @@ from dotenv import load_dotenv
 import openai
 from pathlib import Path
 from db_manager import db_manager, init_database
+from langchain.chat_models import ChatOpenAI
+from langchain.schema import HumanMessage, SystemMessage
+from langchain.prompts import ChatPromptTemplate
 
+from langgraph.graph import StateGraph, END
+from typing import TypedDict
 load_dotenv()
 
 app = Flask(__name__)
@@ -40,17 +45,90 @@ REPORT_DIRS = {
 
 for dir_path in REPORT_DIRS.values():
     Path(dir_path).mkdir(parents=True, exist_ok=True)
+    
+class AnalysisState(TypedDict):
+    log_data: Dict[str, Any]
+    base_analysis: Dict[str, Any]
+    llm_analysis: Dict[str, Any]
+    final_analysis: Dict[str, Any]
+    report_path: str
+    classification: str
+
+def create_analysis_workflow(self):
+    """분석 워크플로우 생성"""
+    workflow = StateGraph(AnalysisState)
+    
+    # 노드 정의
+    workflow.add_node("base_analysis", self._base_analysis_node)
+    workflow.add_node("llm_analysis", self._llm_analysis_node)
+    workflow.add_node("report_generation", self._report_generation_node)
+    workflow.add_node("db_save", self._db_save_node)
+    
+    # 엣지 정의
+    workflow.add_edge("base_analysis", "llm_analysis")
+    workflow.add_edge("llm_analysis", "report_generation")
+    workflow.add_edge("report_generation", "db_save")
+    workflow.add_edge("db_save", END)
+    
+    # 시작점 설정
+    workflow.set_entry_point("base_analysis")
+    
+    return workflow.compile()
+
+def _base_analysis_node(self, state: AnalysisState) -> AnalysisState:
+    """기본 분석 노드"""
+    base_analysis = self.analyze_log(state["log_data"])
+    state["base_analysis"] = base_analysis
+    state["classification"] = base_analysis.get("classification", "UNKNOWN")
+    return state
+
+def _llm_analysis_node(self, state: AnalysisState) -> AnalysisState:
+    """LLM 분석 노드"""
+    llm_analysis = self._get_llm_analysis(state["log_data"], state["base_analysis"])
+    state["llm_analysis"] = llm_analysis
+    
+    # 최종 분석 결과 생성
+    final_analysis = {
+        **state["base_analysis"],
+        "llm_analysis": llm_analysis,
+        "enhanced_classification": llm_analysis.get("classification", state["classification"]),
+        "enhanced_threat_level": llm_analysis.get("threat_level", state["base_analysis"]["threat_level"])
+    }
+    state["final_analysis"] = final_analysis
+    return state
+
+def _report_generation_node(self, state: AnalysisState) -> AnalysisState:
+    """보고서 생성 노드"""
+    report_path = self._generate_and_save_report(state["final_analysis"], state["log_data"])
+    state["report_path"] = report_path
+    state["final_analysis"]["report_path"] = report_path
+    return state
+
+def _db_save_node(self, state: AnalysisState) -> AnalysisState:
+    """DB 저장 노드"""
+    try:
+        report_id = db_manager.save_error_report(
+            state["final_analysis"], 
+            state["log_data"], 
+            state["report_path"]
+        )
+        if report_id:
+            logger.info(f"보고서 DB 저장 완료: ID={report_id}")
+    except Exception as e:
+        logger.error(f"DB 저장 중 오류: {e}")
+    return state
 
 class SecurityAnalysisSystem:
     def __init__(self):
-        self.openai_api_key = os.getenv('OPENAI_API_KEY')
-        self.use_mock = not bool(self.openai_api_key)
-        
         if self.openai_api_key:
-            openai.api_key = self.openai_api_key
-            logger.info("OpenAI API initialized")
+            self.llm = ChatOpenAI(
+                api_key=self.openai_api_key,
+                model="gpt-3.5-turbo",
+                temperature=0.3,
+                max_tokens=1500
+            )
         else:
-            logger.info("Using mock analysis mode")
+            self.llm = None
             
     def generate_simple_report(self, analysis: Dict[str, Any], log_data: Dict[str, Any]) -> str:
         classification = analysis.get("classification", "UNKNOWN")
@@ -135,24 +213,28 @@ class SecurityAnalysisSystem:
 
         return suspicious_elements
     def _get_llm_analysis(self, log_data: Dict[str, Any], base_analysis: Dict[str, Any]) -> Dict[str, Any]:
-        if self.use_mock:
+        if self.use_mock or not self.llm:
             return self._mock_llm_analysis(log_data, base_analysis)
         
         try:
-            prompt = self._create_analysis_prompt(log_data, base_analysis)
+            # 기존 prompt 생성 로직 유지
+            prompt_text = self._create_analysis_prompt(log_data, base_analysis)
             
-            response = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": "You are a cybersecurity expert analyzing security logs."},
-                    {"role": "user", "content": prompt}
-                ],
-                max_tokens=1500,
-                temperature=0.3
-            )
+            # LangChain 메시지 형식으로 변환
+            messages = [
+                SystemMessage(content="You are a cybersecurity expert analyzing security logs."),
+                HumanMessage(content=prompt_text)
+            ]
             
-            analysis_text = response.choices[0].message.content
+            # LangChain 호출
+            response = self.llm(messages)
+            analysis_text = response.content
+            
             return self._parse_llm_response(analysis_text)
+            
+        except Exception as e:
+            logger.error(f"LangChain 분석 오류: {str(e)}")
+            return self._mock_llm_analysis(log_data, base_analysis)
             
         except Exception as e:
             logger.error(f"OpenAI API 호출 오류: {str(e)}")
